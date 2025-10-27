@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 
 from slither_mcp.types import ProjectFacts
@@ -32,7 +33,7 @@ def save_project_facts(project_facts: ProjectFacts, artifacts_dir: str) -> None:
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(serializable_data, f, indent=2, ensure_ascii=False)
     
-    print(f"Saved project facts to: {file_path}")
+    print(f"Saved project facts to: {file_path}", file=sys.stderr)
 
 
 def load_project_facts(artifacts_dir: str) -> ProjectFacts | None:
@@ -63,7 +64,7 @@ def load_project_facts(artifacts_dir: str) -> ProjectFacts | None:
         return ProjectFacts.model_validate(artifact_data)
         
     except Exception as e:
-        print(f"Error loading project facts from {file_path}: {e}")
+        print(f"Error loading project facts from {file_path}: {e}", file=sys.stderr)
         return None
 
 

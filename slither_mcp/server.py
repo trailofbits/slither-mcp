@@ -89,22 +89,22 @@ def initialize_slither(path: str, use_cache: bool) -> ProjectFacts:
     
     # Try to load from cache if requested
     if use_cache and artifacts_exist(str(artifacts_dir)):
-        print(f"Loading cached project facts from {artifacts_dir}/project_facts.json")
+        print(f"Loading cached project facts from {artifacts_dir}/project_facts.json", file=sys.stderr)
         facts = load_project_facts(str(artifacts_dir))
         if facts is not None:
-            print(f"Loaded {len(facts.contracts)} contracts from cache")
+            print(f"Loaded {len(facts.contracts)} contracts from cache", file=sys.stderr)
             return facts
         else:
-            print("Failed to load cache, will re-scan project")
+            print("Failed to load cache, will re-scan project", file=sys.stderr)
     
     # Run Slither analysis
-    print(f"Analyzing project at: {abs_path}")
+    print(f"Analyzing project at: {abs_path}", file=sys.stderr)
     lazy_slither = LazySlither(abs_path)
     
     # Generate project facts
-    print("Generating project facts...")
+    print("Generating project facts...", file=sys.stderr)
     facts = get_project_facts(abs_path, lazy_slither)
-    print(f"Generated facts for {len(facts.contracts)} contracts")
+    print(f"Generated facts for {len(facts.contracts)} contracts", file=sys.stderr)
     
     # Save to artifacts directory
     save_project_facts(facts, str(artifacts_dir))
@@ -194,16 +194,16 @@ def main():
         return list_function_implementations_impl(request, project_facts)
     
     # Run the server
-    print("Starting Slither MCP server...")
-    print(f"Project: {project_path}")
-    print(f"Contracts loaded: {len(project_facts.contracts)}")
-    print("Tools available:")
-    print("  - function_callees")
-    print("  - inheritance_hierarchy")
-    print("  - list_function_implementations")
-    print("  - list_contracts")
-    print("  - get_contract")
-    print("  - list_functions")
+    print("Starting Slither MCP server...", file=sys.stderr)
+    print(f"Project: {project_path}", file=sys.stderr)
+    print(f"Contracts loaded: {len(project_facts.contracts)}", file=sys.stderr)
+    print("Tools available:", file=sys.stderr)
+    print("  - function_callees", file=sys.stderr)
+    print("  - inheritance_hierarchy", file=sys.stderr)
+    print("  - list_function_implementations", file=sys.stderr)
+    print("  - list_contracts", file=sys.stderr)
+    print("  - get_contract", file=sys.stderr)
+    print("  - list_functions", file=sys.stderr)
     mcp.run()
 
 

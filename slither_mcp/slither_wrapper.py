@@ -3,6 +3,7 @@
 import subprocess
 import shutil
 import os
+import sys
 import glob
 
 from crytic_compile import CryticCompile
@@ -23,22 +24,22 @@ def build_project_foundry(path: str):
             capture_output=True,
             text=True
         )
-        print("Foundry build completed successfully")
+        print("Foundry build completed successfully", file=sys.stderr)
         if result.stdout:
-            print("Build output:", result.stdout)
+            print("Build output:", result.stdout, file=sys.stderr)
             
     except subprocess.CalledProcessError as e:
-        print("Error building Foundry project:")
-        print("Return code:", e.returncode)
+        print("Error building Foundry project:", file=sys.stderr)
+        print("Return code:", e.returncode, file=sys.stderr)
         if e.stdout:
-            print("stdout:", e.stdout)
+            print("stdout:", e.stdout, file=sys.stderr)
         if e.stderr:
-            print("stderr:", e.stderr)
+            print("stderr:", e.stderr, file=sys.stderr)
         raise
     except FileNotFoundError as e:
-        print(f"Could not find forge executable at: {forge_cmd}")
-        print("Make sure Foundry is properly installed and in your PATH")
-        print("You can install Foundry from: https://getfoundry.sh/")
+        print(f"Could not find forge executable at: {forge_cmd}", file=sys.stderr)
+        print("Make sure Foundry is properly installed and in your PATH", file=sys.stderr)
+        print("You can install Foundry from: https://getfoundry.sh/", file=sys.stderr)
         raise
 
 
@@ -61,11 +62,11 @@ def _find_forge_executable():
     
     for path in common_paths:
         if os.path.isfile(path) and os.access(path, os.X_OK):
-            print(f"Found forge executable at: {path}")
+            print(f"Found forge executable at: {path}", file=sys.stderr)
             return path
     
     # If we can't find it anywhere, fall back to just "forge" and let the error happen
-    print("Warning: Could not locate forge executable, trying 'forge' command directly")
+    print("Warning: Could not locate forge executable, trying 'forge' command directly", file=sys.stderr)
     return "forge"
 
 
@@ -93,15 +94,15 @@ def _find_npx_executable():
             matches = glob.glob(path_pattern)
             for match in matches:
                 if os.path.isfile(match) and os.access(match, os.X_OK):
-                    print(f"Found npx executable at: {match}")
+                    print(f"Found npx executable at: {match}", file=sys.stderr)
                     return match
         else:
             if os.path.isfile(path_pattern) and os.access(path_pattern, os.X_OK):
-                print(f"Found npx executable at: {path_pattern}")
+                print(f"Found npx executable at: {path_pattern}", file=sys.stderr)
                 return path_pattern
     
     # If we can't find it anywhere, fall back to just "npx" and let the error happen
-    print("Warning: Could not locate npx executable, trying 'npx' command directly")
+    print("Warning: Could not locate npx executable, trying 'npx' command directly", file=sys.stderr)
     return "npx"
 
 
@@ -116,24 +117,24 @@ class LazySlither:
     def _ensure_built(self):
         """Ensure the Slither object is built and ready"""
         if not self._built:
-            print(f"Lazy-loading Slither for project at {self.path}...")
+            print(f"Lazy-loading Slither for project at {self.path}...", file=sys.stderr)
             
             # Ensure forge is in PATH for CryticCompile
             forge_path = _find_forge_executable()
             forge_dir = os.path.dirname(forge_path)
             if forge_dir not in os.environ.get("PATH", ""):
                 os.environ["PATH"] = f"{forge_dir}:{os.environ.get('PATH', '')}"
-                print(f"Added {forge_dir} to PATH for CryticCompile")
+                print(f"Added {forge_dir} to PATH for CryticCompile", file=sys.stderr)
             
             # Ensure npx is in PATH for CryticCompile
             npx_path = _find_npx_executable()
             npx_dir = os.path.dirname(npx_path)
             if npx_dir not in os.environ.get("PATH", ""):
                 os.environ["PATH"] = f"{npx_dir}:{os.environ.get('PATH', '')}"
-                print(f"Added {npx_dir} to PATH for CryticCompile")
+                print(f"Added {npx_dir} to PATH for CryticCompile", file=sys.stderr)
             
             self._slither = Slither(CryticCompile(self.path))
-            print("Slither object created successfully")
+            print("Slither object created successfully", file=sys.stderr)
             self._built = True
 
     @property
