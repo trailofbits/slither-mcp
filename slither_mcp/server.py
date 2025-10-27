@@ -35,6 +35,9 @@ from slither_mcp.tools import (
     InheritanceHierarchyRequest,
     InheritanceHierarchyResponse,
     get_inheritance_hierarchy as get_inheritance_hierarchy_impl,
+    ListFunctionImplementationsRequest,
+    ListFunctionImplementationsResponse,
+    list_function_implementations as list_function_implementations_impl,
 )
 
 
@@ -179,6 +182,17 @@ def main():
         """
         return get_inheritance_hierarchy_impl(request, project_facts)
     
+    @mcp.tool()
+    def list_function_implementations(request: ListFunctionImplementationsRequest) -> ListFunctionImplementationsResponse:
+        """
+        List all contracts that implement a specific function.
+        
+        This tool finds all contracts that provide an implementation of a given function
+        signature. It's particularly useful for finding implementations of abstract
+        functions or interface methods.
+        """
+        return list_function_implementations_impl(request, project_facts)
+    
     # Run the server
     print("Starting Slither MCP server...")
     print(f"Project: {project_path}")
@@ -186,6 +200,7 @@ def main():
     print("Tools available:")
     print("  - function_callees")
     print("  - inheritance_hierarchy")
+    print("  - list_function_implementations")
     print("  - list_contracts")
     print("  - get_contract")
     print("  - list_functions")

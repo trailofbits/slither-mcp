@@ -35,6 +35,11 @@ from slither_mcp.tools.get_inheritance_hierarchy import (
     InheritanceHierarchyResponse,
     get_inheritance_hierarchy,
 )
+from slither_mcp.tools.list_function_implementations import (
+    ListFunctionImplementationsRequest,
+    ListFunctionImplementationsResponse,
+    list_function_implementations,
+)
 
 __all__ = [
     # Query tools
@@ -57,5 +62,8 @@ __all__ = [
     "InheritanceHierarchyRequest",
     "InheritanceHierarchyResponse",
     "get_inheritance_hierarchy",
+    "ListFunctionImplementationsRequest",
+    "ListFunctionImplementationsResponse",
+    "list_function_implementations",
 ]
 
