@@ -57,7 +57,7 @@ When `--use-cache` is specified and `artifacts/project_facts.json` exists in the
 
 ## MCP Tools
 
-The server exposes 6 MCP tools for querying contract and function information:
+The server exposes 8 MCP tools for querying contract and function information:
 
 ### 1. `list_contracts` - List contracts with filters
 
@@ -79,7 +79,55 @@ The server exposes 6 MCP tools for querying contract and function information:
 }
 ```
 
-### 3. `list_functions` - List functions with filters
+### 3. `get_contract_source` - Get contract source code
+
+**Request:**
+```json
+{
+  "contract_key": {"contract_name": "MyContract", "path": "src/MyContract.sol"}
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "source_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract MyContract {\n  // contract code\n}",
+  "file_path": "src/MyContract.sol"
+}
+```
+
+**Description:**
+Returns the complete source code of the Solidity file containing the specified contract. This is useful for retrieving the full implementation, including all contracts, imports, and comments in the file.
+
+### 4. `get_function_source` - Get function source code
+
+**Request:**
+```json
+{
+  "function_key": {
+    "signature": "transfer(address,uint256)",
+    "contract_name": "MyContract",
+    "path": "src/MyContract.sol"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "source_code": "    function transfer(address to, uint256 amount) public returns (bool) {\n        require(to != address(0), \"Invalid address\");\n        balances[msg.sender] -= amount;\n        balances[to] += amount;\n        return true;\n    }\n",
+  "file_path": "src/MyContract.sol",
+  "line_start": 42,
+  "line_end": 47
+}
+```
+
+**Description:**
+Returns the source code for a specific function identified by its FunctionKey. Unlike `get_contract_source` which returns the entire file, this tool returns only the function's implementation along with the line numbers where it's defined. This is useful for focused analysis of individual functions without needing to parse the entire file.
+
+### 5. `list_functions` - List functions with filters
 
 **Request:**
 ```json
@@ -90,7 +138,7 @@ The server exposes 6 MCP tools for querying contract and function information:
 }
 ```
 
-### 4. `function_callees` - Get function call relationships
+### 6. `function_callees` - Get function call relationships
 
 **Request:**
 ```json
@@ -121,7 +169,7 @@ The server exposes 6 MCP tools for querying contract and function information:
 }
 ```
 
-### 5. `inheritance_hierarchy` - Get contract inheritance
+### 7. `get_inherited_contracts` - Get contract inheritance
 
 **Request:**
 ```json
@@ -130,7 +178,54 @@ The server exposes 6 MCP tools for querying contract and function information:
 }
 ```
 
-### 6. `list_function_implementations` - Find function implementations
+**Response:**
+```json
+{
+  "success": true,
+  "contract_key": {"contract_name": "MyContract", "path": "src/MyContract.sol"},
+  "full_inheritance": {
+    "contract_key": {"contract_name": "MyContract", "path": "src/MyContract.sol"},
+    "inherits": [
+      {
+        "contract_key": {"contract_name": "BaseContract", "path": "src/BaseContract.sol"},
+        "inherits": []
+      }
+    ]
+  }
+}
+```
+
+Returns a recursive tree showing all contracts that the specified contract inherits from (its parents and ancestors).
+
+### 8. `get_derived_contracts` - Get contracts that inherit from this one
+
+**Request:**
+```json
+{
+  "contract_key": {"contract_name": "BaseContract", "path": "src/BaseContract.sol"}
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "contract_key": {"contract_name": "BaseContract", "path": "src/BaseContract.sol"},
+  "full_derived": {
+    "contract_key": {"contract_name": "BaseContract", "path": "src/BaseContract.sol"},
+    "derived_by": [
+      {
+        "contract_key": {"contract_name": "DerivedContract", "path": "src/DerivedContract.sol"},
+        "derived_by": []
+      }
+    ]
+  }
+}
+```
+
+Returns a recursive tree showing all contracts that inherit from the specified contract (its children and descendants). This is the inverse of `get_inherited_contracts`.
+
+### 9. `list_function_implementations` - Find function implementations
 
 **Request:**
 ```json
@@ -174,7 +269,8 @@ Each tool has its own module with request/response models and implementation:
 
 **Analysis Tools** (deep analysis):
 - **`list_function_callees.py`**: Get function call relationships
-- **`get_inheritance_hierarchy.py`**: Get contract inheritance hierarchies
+- **`get_inherited_contracts.py`**: Get contract inheritance hierarchies (parents)
+- **`get_derived_contracts.py`**: Get contracts that inherit from a given contract (children)
 - **`list_function_implementations.py`**: Find all implementations of a function
 
 - **`__init__.py`**: Facade that re-exports all tools for convenience
@@ -242,7 +338,8 @@ slither-mcp/
 │   │   ├── get_contract.py          # Query tool
 │   │   ├── list_functions.py        # Query tool
 │   │   ├── list_function_callees.py # Analysis tool
-│   │   ├── get_inheritance_hierarchy.py  # Analysis tool
+│   │   ├── get_inherited_contracts.py  # Analysis tool
+│   │   ├── get_derived_contracts.py    # Analysis tool
 │   │   └── list_function_implementations.py  # Analysis tool
 │   └── client/            # Client utilities
 │       ├── __init__.py              # Client exports

@@ -222,15 +222,16 @@ async def get_function_callees():
 ### Get Inheritance Hierarchy
 
 ```python
-from slither_mcp.tools import InheritanceHierarchyRequest
+from slither_mcp.tools import GetInheritedContractsRequest
 from slither_mcp.types import ContractKey
 
 async def get_inheritance():
     async with SlitherMCPClient() as client:
         await client.connect("/path/to/project", use_cache=True)
         
-        response = await client.inheritance_hierarchy(
-            InheritanceHierarchyRequest(
+        # Get contracts that MyContract inherits from (parents)
+        response = await client.get_inherited_contracts(
+            GetInheritedContractsRequest(
                 contract_key=ContractKey(
                     contract_name="MyContract",
                     path="src/MyContract.sol"
@@ -238,13 +239,44 @@ async def get_inheritance():
             )
         )
         
-        if response.success and response.hierarchy:
-            def print_hierarchy(node, indent=0):
-                print("  " * indent + f"- {node.contract_name}")
-                for child in node.inherits_from:
-                    print_hierarchy(child, indent + 1)
+        if response.success and response.full_inheritance:
+            def print_inheritance(node, indent=0):
+                print("  " * indent + f"- {node.contract_key.contract_name}")
+                for parent in node.inherits:
+                    print_inheritance(parent, indent + 1)
             
-            print_hierarchy(response.hierarchy)
+            print("Contracts that MyContract inherits from:")
+            print_inheritance(response.full_inheritance)
+```
+
+### Get Derived Contracts
+
+```python
+from slither_mcp.tools import GetDerivedContractsRequest
+from slither_mcp.types import ContractKey
+
+async def get_derived():
+    async with SlitherMCPClient() as client:
+        await client.connect("/path/to/project", use_cache=True)
+        
+        # Get contracts that inherit from BaseContract (children)
+        response = await client.get_derived_contracts(
+            GetDerivedContractsRequest(
+                contract_key=ContractKey(
+                    contract_name="BaseContract",
+                    path="src/BaseContract.sol"
+                )
+            )
+        )
+        
+        if response.success and response.full_derived:
+            def print_derived(node, indent=0):
+                print("  " * indent + f"- {node.contract_key.contract_name}")
+                for child in node.derived_by:
+                    print_derived(child, indent + 1)
+            
+            print("Contracts that inherit from BaseContract:")
+            print_derived(response.full_derived)
 ```
 
 ### Find Function Implementations
@@ -323,7 +355,8 @@ All MCP tools have corresponding wrapper creators:
 
 **Analysis Tools:**
 - `create_function_callees_tool()` - Get function call relationships
-- `create_inheritance_hierarchy_tool()` - Get contract inheritance hierarchy
+- `create_get_inherited_contracts_tool()` - Get contract inheritance hierarchy (parents)
+- `create_get_derived_contracts_tool()` - Get contracts that inherit from a given contract (children)
 - `create_function_implementations_tool()` - Find function implementations
 
 ### Basic Agent Setup
@@ -334,7 +367,8 @@ from slither_mcp.client import (
     create_list_contracts_tool,
     create_get_contract_tool,
     create_function_callees_tool,
-    create_inheritance_hierarchy_tool,
+    create_get_inherited_contracts_tool,
+    create_get_derived_contracts_tool,
 )
 from pydantic_ai import Agent
 
@@ -347,7 +381,8 @@ async def use_with_agent():
     list_contracts_tool = create_list_contracts_tool(client)
     get_contract_tool = create_get_contract_tool(client)
     callees_tool = create_function_callees_tool(client)
-    hierarchy_tool = create_inheritance_hierarchy_tool(client)
+    inherited_tool = create_get_inherited_contracts_tool(client)
+    derived_tool = create_get_derived_contracts_tool(client)
     
     # Create agent with tools
     agent = Agent(
@@ -356,7 +391,8 @@ async def use_with_agent():
             list_contracts_tool,
             get_contract_tool,
             callees_tool,
-            hierarchy_tool,
+            inherited_tool,
+            derived_tool,
         ],
     )
     
@@ -379,7 +415,8 @@ from slither_mcp.client import (
     create_get_contract_tool,
     create_list_functions_tool,
     create_function_callees_tool,
-    create_inheritance_hierarchy_tool,
+    create_get_inherited_contracts_tool,
+    create_get_derived_contracts_tool,
     create_function_implementations_tool,
 )
 from pydantic_ai import Agent
@@ -394,7 +431,8 @@ async def agent_with_all_tools():
         create_get_contract_tool(client),
         create_list_functions_tool(client),
         create_function_callees_tool(client),
-        create_inheritance_hierarchy_tool(client),
+        create_get_inherited_contracts_tool(client),
+        create_get_derived_contracts_tool(client),
         create_function_implementations_tool(client),
     ]
     
@@ -513,7 +551,8 @@ else:
 
 #### Analysis Tools
 - `function_callees(request: FunctionCalleesRequest) -> FunctionCalleesResponse`
-- `inheritance_hierarchy(request: InheritanceHierarchyRequest) -> InheritanceHierarchyResponse`
+- `get_inherited_contracts(request: GetInheritedContractsRequest) -> GetInheritedContractsResponse`
+- `get_derived_contracts(request: GetDerivedContractsRequest) -> GetDerivedContractsResponse`
 - `list_function_implementations(request: ListFunctionImplementationsRequest) -> ListFunctionImplementationsResponse`
 
 #### Helper Methods
@@ -531,7 +570,8 @@ Available wrapper functions in `slither_mcp.client`:
 
 **Analysis Tool Wrappers:**
 - `create_function_callees_tool(mcp_client: SlitherMCPClient)`
-- `create_inheritance_hierarchy_tool(mcp_client: SlitherMCPClient)`
+- `create_get_inherited_contracts_tool(mcp_client: SlitherMCPClient)`
+- `create_get_derived_contracts_tool(mcp_client: SlitherMCPClient)`
 - `create_function_implementations_tool(mcp_client: SlitherMCPClient)`
 
 All wrappers return async functions that can be used with pydantic-ai agents. For creating additional custom wrappers, see [ADDING_TOOLS.md](ADDING_TOOLS.md#step-5-create-client-tool-wrapper-optional).

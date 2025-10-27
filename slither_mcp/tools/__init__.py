@@ -29,16 +29,38 @@ from slither_mcp.tools.list_function_callees import (
     FunctionCalleesResponse,
     list_function_callees,
 )
-from slither_mcp.tools.get_inheritance_hierarchy import (
+from slither_mcp.tools.get_inherited_contracts import (
     InheritanceNode,
-    InheritanceHierarchyRequest,
-    InheritanceHierarchyResponse,
-    get_inheritance_hierarchy,
+    GetInheritedContractsRequest,
+    GetInheritedContractsResponse,
+    get_inherited_contracts,
+)
+from slither_mcp.tools.get_derived_contracts import (
+    DerivedNode,
+    GetDerivedContractsRequest,
+    GetDerivedContractsResponse,
+    get_derived_contracts,
 )
 from slither_mcp.tools.list_function_implementations import (
     ListFunctionImplementationsRequest,
     ListFunctionImplementationsResponse,
     list_function_implementations,
+)
+from slither_mcp.tools.list_function_callers import (
+    FunctionCallers,
+    FunctionCallersRequest,
+    FunctionCallersResponse,
+    list_function_callers,
+)
+from slither_mcp.tools.get_contract_source import (
+    GetContractSourceRequest,
+    GetContractSourceResponse,
+    get_contract_source,
+)
+from slither_mcp.tools.get_function_source import (
+    GetFunctionSourceRequest,
+    GetFunctionSourceResponse,
+    get_function_source,
 )
 
 __all__ = [
@@ -50,6 +72,12 @@ __all__ = [
     "GetContractRequest",
     "GetContractResponse",
     "get_contract",
+    "GetContractSourceRequest",
+    "GetContractSourceResponse",
+    "get_contract_source",
+    "GetFunctionSourceRequest",
+    "GetFunctionSourceResponse",
+    "get_function_source",
     "FunctionInfo",
     "ListFunctionsRequest",
     "ListFunctionsResponse",
@@ -59,11 +87,19 @@ __all__ = [
     "FunctionCalleesResponse",
     "list_function_callees",
     "InheritanceNode",
-    "InheritanceHierarchyRequest",
-    "InheritanceHierarchyResponse",
-    "get_inheritance_hierarchy",
+    "GetInheritedContractsRequest",
+    "GetInheritedContractsResponse",
+    "get_inherited_contracts",
+    "DerivedNode",
+    "GetDerivedContractsRequest",
+    "GetDerivedContractsResponse",
+    "get_derived_contracts",
     "ListFunctionImplementationsRequest",
     "ListFunctionImplementationsResponse",
     "list_function_implementations",
+    "FunctionCallers",
+    "FunctionCallersRequest",
+    "FunctionCallersResponse",
+    "list_function_callers",
 ]
 

@@ -1,4 +1,4 @@
-"""Tool for getting inheritance hierarchy."""
+"""Tool for getting inherited contracts."""
 
 from typing import Annotated
 from pydantic import BaseModel, Field
@@ -25,16 +25,16 @@ class InheritanceNode(BaseModel):
 InheritanceNode.model_rebuild()
 
 
-class InheritanceHierarchyRequest(BaseModel):
-    """Request to get inheritance hierarchy for a contract."""
+class GetInheritedContractsRequest(BaseModel):
+    """Request to get inherited contracts for a contract."""
     contract_key: Annotated[
         ContractKey,
-        Field(description="The contract key to get inheritance hierarchy for")
+        Field(description="The contract key to get inherited contracts for")
     ]
 
 
-class InheritanceHierarchyResponse(BaseModel):
-    """Response containing inheritance hierarchy."""
+class GetInheritedContractsResponse(BaseModel):
+    """Response containing inherited contracts."""
     success: bool
     contract_key: ContractKey
     full_inheritance: InheritanceNode | None = None
@@ -83,25 +83,25 @@ def build_inheritance_tree(
     )
 
 
-def get_inheritance_hierarchy(
-    request: InheritanceHierarchyRequest,
+def get_inherited_contracts(
+    request: GetInheritedContractsRequest,
     project_facts: ProjectFacts
-) -> InheritanceHierarchyResponse:
+) -> GetInheritedContractsResponse:
     """
-    Get the inheritance hierarchy for a contract.
+    Get the inherited contracts for a contract.
     
     Args:
-        request: The inheritance hierarchy request
+        request: The get inherited contracts request
         project_facts: The project facts containing contract data
         
     Returns:
-        InheritanceHierarchyResponse with recursive hierarchy or error message
+        GetInheritedContractsResponse with recursive hierarchy or error message
     """
     # Check if contract exists
     contract_model = project_facts.contracts.get(request.contract_key)
     
     if contract_model is None:
-        return InheritanceHierarchyResponse(
+        return GetInheritedContractsResponse(
             success=False,
             contract_key=request.contract_key,
             error_message=f"Contract not found: {request.contract_key.contract_name}"
@@ -110,7 +110,7 @@ def get_inheritance_hierarchy(
     # Build the recursive inheritance tree
     inheritance_tree = build_inheritance_tree(request.contract_key, project_facts)
     
-    return InheritanceHierarchyResponse(
+    return GetInheritedContractsResponse(
         success=True,
         contract_key=request.contract_key,
         full_inheritance=inheritance_tree

@@ -26,6 +26,12 @@ from slither_mcp.tools import (
     GetContractRequest,
     GetContractResponse,
     get_contract as get_contract_impl,
+    GetContractSourceRequest,
+    GetContractSourceResponse,
+    get_contract_source as get_contract_source_impl,
+    GetFunctionSourceRequest,
+    GetFunctionSourceResponse,
+    get_function_source as get_function_source_impl,
     ListFunctionsRequest,
     ListFunctionsResponse,
     list_functions as list_functions_impl,
@@ -33,12 +39,18 @@ from slither_mcp.tools import (
     FunctionCalleesRequest,
     FunctionCalleesResponse,
     list_function_callees as list_function_callees_impl,
-    InheritanceHierarchyRequest,
-    InheritanceHierarchyResponse,
-    get_inheritance_hierarchy as get_inheritance_hierarchy_impl,
+    GetInheritedContractsRequest,
+    GetInheritedContractsResponse,
+    get_inherited_contracts as get_inherited_contracts_impl,
+    GetDerivedContractsRequest,
+    GetDerivedContractsResponse,
+    get_derived_contracts as get_derived_contracts_impl,
     ListFunctionImplementationsRequest,
     ListFunctionImplementationsResponse,
     list_function_implementations as list_function_implementations_impl,
+    FunctionCallersRequest,
+    FunctionCallersResponse,
+    list_function_callers as list_function_callers_impl,
 )
 
 
@@ -165,6 +177,26 @@ def main():
         return get_contract_impl(request, project_facts)
     
     @mcp.tool()
+    def get_contract_source(request: GetContractSourceRequest) -> GetContractSourceResponse:
+        """
+        Get the full source code of the file where a contract is implemented.
+        
+        Returns the complete source code of the Solidity file containing the contract,
+        along with the file path.
+        """
+        return get_contract_source_impl(request, project_facts)
+    
+    @mcp.tool()
+    def get_function_source(request: GetFunctionSourceRequest) -> GetFunctionSourceResponse:
+        """
+        Get the source code of a specific function.
+        
+        Returns the source code for a specific function identified by its FunctionKey,
+        along with the file path and line numbers where it's defined.
+        """
+        return get_function_source_impl(request, project_facts)
+    
+    @mcp.tool()
     def list_functions(request: ListFunctionsRequest) -> ListFunctionsResponse:
         """
         List functions with optional filters.
@@ -187,14 +219,25 @@ def main():
         return list_function_callees_impl(request, project_facts)
     
     @mcp.tool()
-    def inheritance_hierarchy(request: InheritanceHierarchyRequest) -> InheritanceHierarchyResponse:
+    def get_inherited_contracts(request: GetInheritedContractsRequest) -> GetInheritedContractsResponse:
         """
-        Get the inheritance hierarchy for a contract.
+        Get the inherited contracts for a contract.
         
         This tool returns both the directly inherited contracts and the full
         inheritance hierarchy (including transitive inheritance).
         """
-        return get_inheritance_hierarchy_impl(request, project_facts)
+        return get_inherited_contracts_impl(request, project_facts)
+    
+    @mcp.tool()
+    def get_derived_contracts(request: GetDerivedContractsRequest) -> GetDerivedContractsResponse:
+        """
+        Get the derived contracts for a contract (contracts that inherit from it).
+        
+        This tool returns both the directly derived contracts and the full
+        derived hierarchy (including transitive derivation), showing all contracts
+        that directly or indirectly inherit from the specified contract.
+        """
+        return get_derived_contracts_impl(request, project_facts)
     
     @mcp.tool()
     def list_function_implementations(request: ListFunctionImplementationsRequest) -> ListFunctionImplementationsResponse:
@@ -207,16 +250,31 @@ def main():
         """
         return list_function_implementations_impl(request, project_facts)
     
+    @mcp.tool()
+    def function_callers(request: FunctionCallersRequest) -> FunctionCallersResponse:
+        """
+        Get all functions that call the target function, grouped by call type.
+        
+        This tool finds all functions in the project that may call the target function
+        by checking each function's callees lists. Results are grouped by call type:
+        internal, external, and library calls.
+        """
+        return list_function_callers_impl(request, project_facts)
+    
     # Run the server
     print("Starting Slither MCP server...", file=sys.stderr)
     print(f"Project: {project_path}", file=sys.stderr)
     print(f"Contracts loaded: {len(project_facts.contracts)}", file=sys.stderr)
     print("Tools available:", file=sys.stderr)
     print("  - function_callees", file=sys.stderr)
-    print("  - inheritance_hierarchy", file=sys.stderr)
+    print("  - function_callers", file=sys.stderr)
+    print("  - get_inherited_contracts", file=sys.stderr)
+    print("  - get_derived_contracts", file=sys.stderr)
     print("  - list_function_implementations", file=sys.stderr)
     print("  - list_contracts", file=sys.stderr)
     print("  - get_contract", file=sys.stderr)
+    print("  - get_contract_source", file=sys.stderr)
+    print("  - get_function_source", file=sys.stderr)
     print("  - list_functions", file=sys.stderr)
     mcp.run(transport="stdio", show_banner=False)
 

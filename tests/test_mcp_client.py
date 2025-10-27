@@ -14,8 +14,8 @@ from slither_mcp.tools import (
     ListFunctionsResponse,
     FunctionCalleesRequest,
     FunctionCalleesResponse,
-    InheritanceHierarchyRequest,
-    InheritanceHierarchyResponse,
+    GetInheritedContractsRequest,
+    GetInheritedContractsResponse,
     ListFunctionImplementationsRequest,
     ListFunctionImplementationsResponse,
 )
@@ -286,12 +286,12 @@ class TestSlitherMCPClientTools:
         mock_session.call_tool.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_inheritance_hierarchy(self, mock_connected_client, child_contract_key):
-        """Test inheritance_hierarchy method."""
+    async def test_get_inherited_contracts(self, mock_connected_client, child_contract_key):
+        """Test get_inherited_contracts method."""
         client, mock_session = mock_connected_client
         
         # Mock the response
-        expected_response = InheritanceHierarchyResponse(
+        expected_response = GetInheritedContractsResponse(
             success=True,
             contract_key=child_contract_key,
             full_inheritance=None
@@ -304,8 +304,8 @@ class TestSlitherMCPClientTools:
         mock_session.call_tool = AsyncMock(return_value=mock_result)
         
         # Call the method
-        request = InheritanceHierarchyRequest(contract_key=child_contract_key)
-        response = await client.inheritance_hierarchy(request)
+        request = GetInheritedContractsRequest(contract_key=child_contract_key)
+        response = await client.get_inherited_contracts(request)
         
         # Verify
         assert response.success is True

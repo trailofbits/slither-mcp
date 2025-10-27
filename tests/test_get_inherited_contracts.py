@@ -1,21 +1,21 @@
-"""Tests for get_inheritance_hierarchy tool."""
+"""Tests for get_inherited_contracts tool."""
 
 import pytest
-from slither_mcp.tools.get_inheritance_hierarchy import (
-    InheritanceHierarchyRequest,
-    get_inheritance_hierarchy,
+from slither_mcp.tools.get_inherited_contracts import (
+    GetInheritedContractsRequest,
+    get_inherited_contracts,
     build_inheritance_tree,
 )
 from slither_mcp.types import ContractKey
 
 
-class TestGetInheritanceHierarchyHappyPath:
-    """Test happy path scenarios for get_inheritance_hierarchy."""
+class TestGetInheritedContractsHappyPath:
+    """Test happy path scenarios for get_inherited_contracts."""
 
     def test_simple_inheritance(self, project_facts, child_contract_key, base_contract_key):
-        """Test getting inheritance hierarchy for simple single inheritance."""
-        request = InheritanceHierarchyRequest(contract_key=child_contract_key)
-        response = get_inheritance_hierarchy(request, project_facts)
+        """Test getting inherited contracts for simple single inheritance."""
+        request = GetInheritedContractsRequest(contract_key=child_contract_key)
+        response = get_inherited_contracts(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
@@ -39,9 +39,9 @@ class TestGetInheritanceHierarchyHappyPath:
         child_contract_key,
         base_contract_key,
     ):
-        """Test getting inheritance hierarchy with multiple levels."""
-        request = InheritanceHierarchyRequest(contract_key=grandchild_contract_key)
-        response = get_inheritance_hierarchy(request, project_facts)
+        """Test getting inherited contracts with multiple levels."""
+        request = GetInheritedContractsRequest(contract_key=grandchild_contract_key)
+        response = get_inherited_contracts(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
@@ -69,9 +69,9 @@ class TestGetInheritanceHierarchyHappyPath:
         base_contract_key,
         interface_a_key,
     ):
-        """Test getting inheritance hierarchy for multiple inheritance."""
-        request = InheritanceHierarchyRequest(contract_key=multi_inherit_contract_key)
-        response = get_inheritance_hierarchy(request, project_facts)
+        """Test getting inherited contracts for multiple inheritance."""
+        request = GetInheritedContractsRequest(contract_key=multi_inherit_contract_key)
+        response = get_inherited_contracts(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
@@ -92,9 +92,9 @@ class TestGetInheritanceHierarchyHappyPath:
             assert len(parent.inherits) == 0
 
     def test_no_inheritance(self, project_facts, standalone_contract_key):
-        """Test getting inheritance hierarchy for a contract with no parents."""
-        request = InheritanceHierarchyRequest(contract_key=standalone_contract_key)
-        response = get_inheritance_hierarchy(request, project_facts)
+        """Test getting inherited contracts for a contract with no parents."""
+        request = GetInheritedContractsRequest(contract_key=standalone_contract_key)
+        response = get_inherited_contracts(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
@@ -106,9 +106,9 @@ class TestGetInheritanceHierarchyHappyPath:
         assert len(root.inherits) == 0
 
     def test_interface_inheritance(self, project_facts, interface_a_key):
-        """Test getting inheritance hierarchy for an interface."""
-        request = InheritanceHierarchyRequest(contract_key=interface_a_key)
-        response = get_inheritance_hierarchy(request, project_facts)
+        """Test getting inherited contracts for an interface."""
+        request = GetInheritedContractsRequest(contract_key=interface_a_key)
+        response = get_inherited_contracts(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
@@ -119,9 +119,9 @@ class TestGetInheritanceHierarchyHappyPath:
         assert len(root.inherits) == 0
 
     def test_library_inheritance(self, project_facts, library_b_key):
-        """Test getting inheritance hierarchy for a library."""
-        request = InheritanceHierarchyRequest(contract_key=library_b_key)
-        response = get_inheritance_hierarchy(request, project_facts)
+        """Test getting inherited contracts for a library."""
+        request = GetInheritedContractsRequest(contract_key=library_b_key)
+        response = get_inherited_contracts(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
@@ -132,9 +132,9 @@ class TestGetInheritanceHierarchyHappyPath:
         assert len(root.inherits) == 0
 
     def test_abstract_contract_inheritance(self, project_facts, base_contract_key):
-        """Test getting inheritance hierarchy for an abstract contract."""
-        request = InheritanceHierarchyRequest(contract_key=base_contract_key)
-        response = get_inheritance_hierarchy(request, project_facts)
+        """Test getting inherited contracts for an abstract contract."""
+        request = GetInheritedContractsRequest(contract_key=base_contract_key)
+        response = get_inherited_contracts(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
@@ -145,17 +145,17 @@ class TestGetInheritanceHierarchyHappyPath:
         assert len(root.inherits) == 0
 
 
-class TestGetInheritanceHierarchyErrorCases:
-    """Test error cases for get_inheritance_hierarchy."""
+class TestGetInheritedContractsErrorCases:
+    """Test error cases for get_inherited_contracts."""
 
     def test_contract_not_found(self, project_facts):
-        """Test getting inheritance hierarchy for a non-existent contract."""
+        """Test getting inherited contracts for a non-existent contract."""
         nonexistent_key = ContractKey(
             contract_name="NonExistent",
             path="contracts/NonExistent.sol"
         )
-        request = InheritanceHierarchyRequest(contract_key=nonexistent_key)
-        response = get_inheritance_hierarchy(request, project_facts)
+        request = GetInheritedContractsRequest(contract_key=nonexistent_key)
+        response = get_inherited_contracts(request, project_facts)
 
         assert response.success is False
         assert response.error_message is not None
@@ -165,21 +165,21 @@ class TestGetInheritanceHierarchyErrorCases:
         assert response.full_inheritance is None
 
     def test_contract_not_found_empty_project(self, empty_project_facts):
-        """Test getting inheritance hierarchy in an empty project."""
+        """Test getting inherited contracts in an empty project."""
         some_key = ContractKey(
             contract_name="SomeContract",
             path="contracts/Some.sol"
         )
-        request = InheritanceHierarchyRequest(contract_key=some_key)
-        response = get_inheritance_hierarchy(request, empty_project_facts)
+        request = GetInheritedContractsRequest(contract_key=some_key)
+        response = get_inherited_contracts(request, empty_project_facts)
 
         assert response.success is False
         assert response.error_message is not None
         assert response.full_inheritance is None
 
 
-class TestGetInheritanceHierarchyEdgeCases:
-    """Test edge cases for get_inheritance_hierarchy."""
+class TestGetInheritedContractsEdgeCases:
+    """Test edge cases for get_inherited_contracts."""
 
     def test_circular_dependency_prevention(self, project_facts):
         """Test that circular dependencies are handled gracefully."""
@@ -228,8 +228,8 @@ class TestGetInheritanceHierarchyEdgeCases:
         )
 
         # Should handle circular dependency without infinite recursion
-        request = InheritanceHierarchyRequest(contract_key=contract_a_key)
-        response = get_inheritance_hierarchy(request, circular_project)
+        request = GetInheritedContractsRequest(contract_key=contract_a_key)
+        response = get_inherited_contracts(request, circular_project)
 
         assert response.success is True
         assert response.full_inheritance is not None
@@ -264,8 +264,8 @@ class TestGetInheritanceHierarchyEdgeCases:
             project_dir="/test/self_ref",
         )
 
-        request = InheritanceHierarchyRequest(contract_key=self_ref_key)
-        response = get_inheritance_hierarchy(request, self_ref_project)
+        request = GetInheritedContractsRequest(contract_key=self_ref_key)
+        response = get_inherited_contracts(request, self_ref_project)
 
         assert response.success is True
         # Should handle self-reference without infinite recursion
@@ -302,8 +302,8 @@ class TestGetInheritanceHierarchyEdgeCases:
             project_dir="/test/orphan",
         )
 
-        request = InheritanceHierarchyRequest(contract_key=orphan_key)
-        response = get_inheritance_hierarchy(request, orphan_project)
+        request = GetInheritedContractsRequest(contract_key=orphan_key)
+        response = get_inherited_contracts(request, orphan_project)
 
         assert response.success is True
         # Should still build the tree, with missing parent as leaf
@@ -314,8 +314,8 @@ class TestGetInheritanceHierarchyEdgeCases:
 
     def test_empty_contract_with_inheritance(self, project_facts, empty_contract_key):
         """Test getting inheritance for empty contract (no functions but valid)."""
-        request = InheritanceHierarchyRequest(contract_key=empty_contract_key)
-        response = get_inheritance_hierarchy(request, project_facts)
+        request = GetInheritedContractsRequest(contract_key=empty_contract_key)
+        response = get_inherited_contracts(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None

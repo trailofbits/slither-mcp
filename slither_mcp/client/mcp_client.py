@@ -14,12 +14,20 @@ from slither_mcp.tools import (
     ListContractsResponse,
     GetContractRequest,
     GetContractResponse,
+    GetContractSourceRequest,
+    GetContractSourceResponse,
+    GetFunctionSourceRequest,
+    GetFunctionSourceResponse,
     ListFunctionsRequest,
     ListFunctionsResponse,
     FunctionCalleesRequest,
     FunctionCalleesResponse,
-    InheritanceHierarchyRequest,
-    InheritanceHierarchyResponse,
+    FunctionCallersRequest,
+    FunctionCallersResponse,
+    GetInheritedContractsRequest,
+    GetInheritedContractsResponse,
+    GetDerivedContractsRequest,
+    GetDerivedContractsResponse,
     ListFunctionImplementationsRequest,
     ListFunctionImplementationsResponse,
 )
@@ -194,6 +202,36 @@ class SlitherMCPClient:
         """
         return await self._call_tool("get_contract", request, GetContractResponse)
     
+    async def get_contract_source(
+        self,
+        request: GetContractSourceRequest
+    ) -> GetContractSourceResponse:
+        """
+        Get the full source code of the file where a contract is implemented.
+        
+        Args:
+            request: Request with contract key
+            
+        Returns:
+            Response with source code and file path
+        """
+        return await self._call_tool("get_contract_source", request, GetContractSourceResponse)
+    
+    async def get_function_source(
+        self,
+        request: GetFunctionSourceRequest
+    ) -> GetFunctionSourceResponse:
+        """
+        Get the source code of a specific function.
+        
+        Args:
+            request: Request with function key
+            
+        Returns:
+            Response with function source code, file path, and line numbers
+        """
+        return await self._call_tool("get_function_source", request, GetFunctionSourceResponse)
+    
     async def list_functions(
         self,
         request: ListFunctionsRequest
@@ -226,12 +264,27 @@ class SlitherMCPClient:
         """
         return await self._call_tool("function_callees", request, FunctionCalleesResponse)
     
-    async def inheritance_hierarchy(
+    async def function_callers(
         self,
-        request: InheritanceHierarchyRequest
-    ) -> InheritanceHierarchyResponse:
+        request: FunctionCallersRequest
+    ) -> FunctionCallersResponse:
         """
-        Get the inheritance hierarchy for a contract.
+        Get all functions that call the target function, grouped by call type.
+        
+        Args:
+            request: Request with function key
+            
+        Returns:
+            Response with internal, external, and library callers
+        """
+        return await self._call_tool("function_callers", request, FunctionCallersResponse)
+    
+    async def get_inherited_contracts(
+        self,
+        request: GetInheritedContractsRequest
+    ) -> GetInheritedContractsResponse:
+        """
+        Get the inherited contracts for a contract.
         
         Args:
             request: Request with contract key
@@ -239,7 +292,22 @@ class SlitherMCPClient:
         Returns:
             Response with inheritance tree
         """
-        return await self._call_tool("inheritance_hierarchy", request, InheritanceHierarchyResponse)
+        return await self._call_tool("get_inherited_contracts", request, GetInheritedContractsResponse)
+    
+    async def get_derived_contracts(
+        self,
+        request: GetDerivedContractsRequest
+    ) -> GetDerivedContractsResponse:
+        """
+        Get the derived contracts for a contract (contracts that inherit from it).
+        
+        Args:
+            request: Request with contract key
+            
+        Returns:
+            Response with derived contracts tree
+        """
+        return await self._call_tool("get_derived_contracts", request, GetDerivedContractsResponse)
     
     async def list_function_implementations(
         self,
