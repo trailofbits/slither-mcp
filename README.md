@@ -57,7 +57,7 @@ When `--use-cache` is specified and `artifacts/project_facts.json` exists in the
 
 ## MCP Tools
 
-The server exposes 7 MCP tools for querying contract and function information:
+The server exposes 6 MCP tools for querying contract and function information:
 
 ### 1. `list_contracts` - List contracts with filters
 
@@ -130,7 +130,28 @@ The server exposes 7 MCP tools for querying contract and function information:
 }
 ```
 
+### 6. `list_function_implementations` - Find function implementations
+
+**Request:**
+```json
+{
+  "function_signature": "myFunction(uint256,address)"
+}
+```
+
 All tools return responses with a `success` boolean and either data fields or an `error_message`. See the tool docstrings for complete response schemas.
+
+## Client Usage
+
+The `slither-mcp` package includes a typed Python client (`SlitherMCPClient`) for programmatically interacting with the Slither MCP server. This is useful for building tools, scripts, or agents that need to query Solidity projects.
+
+The client provides:
+- Type-safe methods for all MCP tools
+- Automatic serialization/deserialization of Pydantic models
+- Helper methods for common patterns
+- Tool wrappers for pydantic-ai agent integration
+
+For detailed usage examples and documentation, see [CLIENT_USAGE.md](CLIENT_USAGE.md).
 
 ## Architecture
 
@@ -143,13 +164,30 @@ The server is organized into several modules:
 - **`callees.py`**: Function callees extraction
 - **`artifacts.py`**: Artifact caching and loading
 
-### Tool Modules
-- **`query_tools.py`**: Query tools for browsing and filtering data (list_contracts, get_contract, list_functions)
-- **`analysis_tools.py`**: Analysis tools for deep analysis (function_callees, inheritance_hierarchy)
-- **`tools.py`**: Facade that re-exports all tools for convenience
+### Tool Modules (`tools/` directory)
+Each tool has its own module with request/response models and implementation:
+
+**Query Tools** (browsing and filtering):
+- **`list_contracts.py`**: List contracts with optional filters
+- **`get_contract.py`**: Get detailed contract information
+- **`list_functions.py`**: List functions with optional filters
+
+**Analysis Tools** (deep analysis):
+- **`list_function_callees.py`**: Get function call relationships
+- **`get_inheritance_hierarchy.py`**: Get contract inheritance hierarchies
+- **`list_function_implementations.py`**: Find all implementations of a function
+
+- **`__init__.py`**: Facade that re-exports all tools for convenience
 
 ### Server
 - **`server.py`**: FastMCP server entry point that registers all tools
+
+### Client Modules (`client/` directory)
+Client utilities for programmatic interaction with the MCP server:
+
+- **`mcp_client.py`**: Typed client wrapper (`SlitherMCPClient`) for connecting to and querying the MCP server
+- **`tool_wrappers.py`**: Tool wrapper functions for pydantic-ai agent integration
+- **`__init__.py`**: Exports client classes and wrappers
 
 ## Artifacts
 
@@ -198,11 +236,23 @@ slither-mcp/
 │   ├── facts.py           # Facts generation
 │   ├── callees.py         # Callees extraction
 │   ├── artifacts.py       # Artifact management
-│   ├── query_tools.py     # Query tools (data browsing/filtering)
-│   ├── analysis_tools.py  # Analysis tools (deep analysis)
-│   └── tools.py           # Facade re-exporting all tools
+│   ├── tools/             # MCP tool implementations
+│   │   ├── __init__.py              # Facade re-exporting all tools
+│   │   ├── list_contracts.py        # Query tool
+│   │   ├── get_contract.py          # Query tool
+│   │   ├── list_functions.py        # Query tool
+│   │   ├── list_function_callees.py # Analysis tool
+│   │   ├── get_inheritance_hierarchy.py  # Analysis tool
+│   │   └── list_function_implementations.py  # Analysis tool
+│   └── client/            # Client utilities
+│       ├── __init__.py              # Client exports
+│       ├── mcp_client.py            # Typed MCP client
+│       └── tool_wrappers.py         # Pydantic-ai tool wrappers
+├── tests/
 ├── pyproject.toml
-└── README.md
+├── README.md
+├── CLIENT_USAGE.md        # Client usage guide
+└── ADDING_TOOLS.md        # Tool development guide
 ```
 
 ## Roadmap
