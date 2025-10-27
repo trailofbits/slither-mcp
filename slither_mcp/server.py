@@ -2,6 +2,7 @@
 """Slither MCP Server - Main entry point."""
 
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
@@ -116,6 +117,19 @@ def main():
     """Main entry point for the MCP server."""
     global project_facts, project_path
     
+    # Configure all logging to use stderr FIRST
+    # This is critical for stdio transport - stdout is used for MCP protocol
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setFormatter(logging.Formatter(
+        '[%(asctime)s] %(levelname)-8s %(message)s',
+        datefmt='%m/%d/%y %H:%M:%S'
+    ))
+    logging.root.addHandler(stderr_handler)
+    logging.root.setLevel(logging.WARNING)
+    
     # Parse command-line arguments
     args = parse_args()
     
@@ -204,7 +218,7 @@ def main():
     print("  - list_contracts", file=sys.stderr)
     print("  - get_contract", file=sys.stderr)
     print("  - list_functions", file=sys.stderr)
-    mcp.run()
+    mcp.run(transport="stdio", show_banner=False)
 
 
 if __name__ == "__main__":
