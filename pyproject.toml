@@ -1,12 +1,12 @@
 [project]
 name = "slither-mcp"
-version = "0.1.0"
+version = "0.1.2"
 description = "MCP server for Slither static analysis of Solidity contracts"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastmcp>=0.1.0",
-    "mcp>=0.3.0",
+    "fastmcp>=2.13.0",
+    "mcp>=1.19.0",
     "pydantic>=2.0.0",
     "slither-analyzer>=0.11.3",
     "crytic-compile>=0.3.0",
@@ -19,8 +19,8 @@ slither-mcp = "slither_mcp.server:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
 ]

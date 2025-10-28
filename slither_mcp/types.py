@@ -58,8 +58,8 @@ class DetectorResult(BaseModel):
 
 
 class ContractKey(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    
+    # Note: We implement __hash__ manually instead of using frozen=True
+    # to avoid JSON schema generation issues with some MCP clients
     contract_name: Annotated[str, Field(description="The name of the contract")]
     path: Annotated[
         str,
@@ -90,8 +90,8 @@ class ContractKey(BaseModel):
 
 
 class FunctionKey(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    
+    # Note: We implement __hash__ manually instead of using frozen=True
+    # to avoid JSON schema generation issues with some MCP clients
     signature: Annotated[str, Field(description="The function's signature. e.g: transferFrom(address,address,uint256). DO NOT include the function's visibility or return type. Running keccak(signature) MUST return the function's ABI selector.")]
     contract_name: Annotated[str, Field(description="The name of the contract the function is implemented in")]
     path: Annotated[

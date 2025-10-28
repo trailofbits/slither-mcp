@@ -16,7 +16,7 @@ from slither_mcp.artifacts import (
 )
 from slither_mcp.facts import get_project_facts
 from slither_mcp.slither_wrapper import LazySlither
-from slither_mcp.types import ProjectFacts
+from slither_mcp.types import ContractKey, FunctionKey, ProjectFacts
 # Import all tools from the tools package
 from slither_mcp.tools import (
     # Query tools - for browsing and filtering data
@@ -164,123 +164,196 @@ def main():
     # Register Query Tools - for browsing and filtering data
     
     @mcp.tool()
-    def list_contracts(request: ListContractsRequest) -> ListContractsResponse:
+    def list_contracts(filter_type: str = "all") -> ListContractsResponse:
         """
         List all contracts with optional filters.
         
         Supports filtering by contract type (concrete, interface, library, abstract)
         and by path pattern (glob-style matching).
+        
+        Args:
+            filter_type: Type of contracts to list - "all", "concrete", "interface", "library", or "abstract" (default: "all")
         """
+        request = ListContractsRequest(filter_type=filter_type)
         return list_contracts_impl(request, project_facts)
     
     @mcp.tool()
-    def get_contract(request: GetContractRequest) -> GetContractResponse:
+    def get_contract(contract_key: dict, include_functions: bool = True) -> GetContractResponse:
         """
         Get detailed information about a specific contract.
         
         Returns complete contract metadata including inheritance, functions,
         and contract type information.
+        
+        Args:
+            contract_key: Dictionary with 'contract_name' and 'path' keys
+            include_functions: Whether to include function details (default: True)
         """
+        contract_key_obj = ContractKey(**contract_key)
+        request = GetContractRequest(contract_key=contract_key_obj, include_functions=include_functions)
         return get_contract_impl(request, project_facts)
     
     @mcp.tool()
-    def get_contract_source(request: GetContractSourceRequest) -> GetContractSourceResponse:
+    def get_contract_source(contract_key: dict) -> GetContractSourceResponse:
         """
         Get the full source code of the file where a contract is implemented.
         
         Returns the complete source code of the Solidity file containing the contract,
         along with the file path.
+        
+        Args:
+            contract_key: Dictionary with 'contract_name' and 'path' keys
         """
+        contract_key_obj = ContractKey(**contract_key)
+        request = GetContractSourceRequest(contract_key=contract_key_obj)
         return get_contract_source_impl(request, project_facts)
     
     @mcp.tool()
-    def get_function_source(request: GetFunctionSourceRequest) -> GetFunctionSourceResponse:
+    def get_function_source(function_key: dict) -> GetFunctionSourceResponse:
         """
         Get the source code of a specific function.
         
         Returns the source code for a specific function identified by its FunctionKey,
         along with the file path and line numbers where it's defined.
+        
+        Args:
+            function_key: Dictionary with 'signature', 'contract_name', and 'path' keys
         """
+        function_key_obj = FunctionKey(**function_key)
+        request = GetFunctionSourceRequest(function_key=function_key_obj)
         return get_function_source_impl(request, project_facts)
     
     @mcp.tool()
-    def list_functions(request: ListFunctionsRequest) -> ListFunctionsResponse:
+    def list_functions(
+        contract_key: dict,
+        visibility: list[str] | None = None,
+        has_modifiers: list[str] | None = None
+    ) -> ListFunctionsResponse:
         """
         List functions with optional filters.
         
         Can filter by contract, visibility (public/external/internal/private),
         and solidity modifiers (view/pure/payable/virtual/etc).
+        
+        Args:
+            contract_key: Dictionary with 'contract_name' and 'path' keys
+            visibility: Optional list of visibility filters (e.g., ["public", "external"])
+            has_modifiers: Optional list of modifier filters (e.g., ["view", "pure"])
         """
+        contract_key_obj = ContractKey(**contract_key)
+        request = ListFunctionsRequest(
+            contract_key=contract_key_obj,
+            visibility=visibility,
+            has_modifiers=has_modifiers
+        )
         return list_functions_impl(request, project_facts)
     
     # Register Analysis Tools - for deep analysis
     
     @mcp.tool()
-    def function_callees(request: FunctionCalleesRequest) -> FunctionCalleesResponse:
+    def function_callees(function_key: dict) -> FunctionCalleesResponse:
         """
         Get the internal, external, and library callees for a function.
         
         This tool resolves a function in a given calling context and returns
         all the functions it calls (internal, external, and library calls).
+        
+        Args:
+            function_key: Dictionary with 'signature', 'contract_name', and 'path' keys
         """
+        function_key_obj = FunctionKey(**function_key)
+        request = FunctionCalleesRequest(function_key=function_key_obj)
         return list_function_callees_impl(request, project_facts)
     
     @mcp.tool()
-    def get_inherited_contracts(request: GetInheritedContractsRequest) -> GetInheritedContractsResponse:
+    def get_inherited_contracts(contract_key: dict) -> GetInheritedContractsResponse:
         """
         Get the inherited contracts for a contract.
         
         This tool returns both the directly inherited contracts and the full
         inheritance hierarchy (including transitive inheritance).
+        
+        Args:
+            contract_key: Dictionary with 'contract_name' and 'path' keys
         """
+        contract_key_obj = ContractKey(**contract_key)
+        request = GetInheritedContractsRequest(contract_key=contract_key_obj)
         return get_inherited_contracts_impl(request, project_facts)
     
     @mcp.tool()
-    def get_derived_contracts(request: GetDerivedContractsRequest) -> GetDerivedContractsResponse:
+    def get_derived_contracts(contract_key: dict) -> GetDerivedContractsResponse:
         """
         Get the derived contracts for a contract (contracts that inherit from it).
         
         This tool returns both the directly derived contracts and the full
         derived hierarchy (including transitive derivation), showing all contracts
         that directly or indirectly inherit from the specified contract.
+        
+        Args:
+            contract_key: Dictionary with 'contract_name' and 'path' keys
         """
+        # Parse the contract_key dict into a ContractKey model
+        contract_key_obj = ContractKey(**contract_key)
+        request = GetDerivedContractsRequest(contract_key=contract_key_obj)
         return get_derived_contracts_impl(request, project_facts)
     
     @mcp.tool()
-    def list_function_implementations(request: ListFunctionImplementationsRequest) -> ListFunctionImplementationsResponse:
+    def list_function_implementations(contract_key: dict, function_signature: str) -> ListFunctionImplementationsResponse:
         """
         List all contracts that implement a specific function.
         
         This tool finds all contracts that provide an implementation of a given function
         signature. It's particularly useful for finding implementations of abstract
         functions or interface methods.
+        
+        Args:
+            contract_key: Dictionary with 'contract_name' and 'path' keys (typically an abstract contract or interface)
+            function_signature: The function signature to search for (e.g., "transfer(address,uint256)")
         """
+        contract_key_obj = ContractKey(**contract_key)
+        request = ListFunctionImplementationsRequest(
+            contract_key=contract_key_obj,
+            function_signature=function_signature
+        )
         return list_function_implementations_impl(request, project_facts)
     
     @mcp.tool()
-    def function_callers(request: FunctionCallersRequest) -> FunctionCallersResponse:
+    def function_callers(function_key: dict) -> FunctionCallersResponse:
         """
         Get all functions that call the target function, grouped by call type.
         
         This tool finds all functions in the project that may call the target function
         by checking each function's callees lists. Results are grouped by call type:
         internal, external, and library calls.
+        
+        Args:
+            function_key: Dictionary with 'signature', 'contract_name', and 'path' keys
         """
+        function_key_obj = FunctionKey(**function_key)
+        request = FunctionCallersRequest(function_key=function_key_obj)
         return list_function_callers_impl(request, project_facts)
     
     @mcp.tool()
-    def list_detectors(request: ListDetectorsRequest) -> ListDetectorsResponse:
+    def list_detectors(name_filter: str | None = None) -> ListDetectorsResponse:
         """
         List all available Slither detectors with their metadata.
         
         This tool returns information about all available Slither detectors including
         their names, descriptions, impact levels, and confidence ratings. You can
         optionally filter by name or description using the name_filter parameter.
+        
+        Args:
+            name_filter: Optional string to filter detectors by name or description
         """
+        request = ListDetectorsRequest(name_filter=name_filter)
         return list_detectors_impl(request, project_facts)
     
     @mcp.tool()
-    def run_detectors(request: RunDetectorsRequest) -> RunDetectorsResponse:
+    def run_detectors(
+        detector_names: list[str] | None = None,
+        impact: list[str] | None = None,
+        confidence: list[str] | None = None
+    ) -> RunDetectorsResponse:
         """
         Retrieve cached Slither detector results with optional filtering.
         
@@ -289,7 +362,17 @@ def main():
         impact level (High, Medium, Low, Informational), and confidence level
         (High, Medium, Low). Each result includes source locations (file path and
         line numbers) for the findings.
+        
+        Args:
+            detector_names: Optional list of detector names to filter by
+            impact: Optional list of impact levels to filter by (e.g., ["High", "Medium"])
+            confidence: Optional list of confidence levels to filter by (e.g., ["High", "Medium"])
         """
+        request = RunDetectorsRequest(
+            detector_names=detector_names,
+            impact=impact,
+            confidence=confidence
+        )
         return run_detectors_impl(request, project_facts)
     
     # Run the server
