@@ -205,67 +205,90 @@ def process_detector_results(slither) -> dict[str, list[DetectorResult]]:
     results_by_detector = {}
     
     try:
-        print("Running Slither detectors...", file=sys.stderr)
+        # First, register all detectors
+        print("Registering Slither detectors...", file=sys.stderr)
+        detector_count = 0
+        for name in dir(slither_detectors):
+            if name.startswith('_'):
+                continue
+            detector_class = getattr(slither_detectors, name)
+            if (inspect.isclass(detector_class) and 
+                issubclass(detector_class, AbstractDetector) and 
+                detector_class is not AbstractDetector):
+                slither.register_detector(detector_class)
+                detector_count += 1
+        
+        print(f"Registered {detector_count} detectors", file=sys.stderr)
+        
         # Run all detectors
+        print("Running Slither detectors...", file=sys.stderr)
         detector_results = slither.run_detectors()
-        print(f"Detectors completed, processing {len(detector_results)} results...", file=sys.stderr)
+        print(f"Detectors completed, got {len(detector_results)} result sets", file=sys.stderr)
         
-        for result in detector_results:
-            if not result:
+        # Process results - detector_results is a list of lists
+        # Each element is a list of findings from one detector
+        findings_count = 0
+        for detector_findings in detector_results:
+            # Skip empty results
+            if not detector_findings:
                 continue
-                
-            try:
-                # Extract detector information
-                detector_name = result.get('check', 'unknown')
-                impact = result.get('impact', 'Unknown').capitalize()
-                confidence = result.get('confidence', 'Unknown').capitalize()
-                description = result.get('description', '')
-                
-                # Extract source locations from elements
-                source_locations = []
-                elements = result.get('elements', [])
-                
-                for element in elements:
-                    if isinstance(element, dict):
-                        # Handle dictionary elements (common in detector output)
-                        source_map = element.get('source_mapping', {})
-                        if source_map:
-                            lines = source_map.get('lines', [])
-                            filename = source_map.get('filename_short', source_map.get('filename_relative', ''))
-                            if lines and filename:
-                                source_locations.append(SourceLocation(
-                                    file_path=filename,
-                                    start_line=lines[0],
-                                    end_line=lines[-1]
-                                ))
-                    else:
-                        # Handle object elements
-                        locs = extract_source_locations(element)
-                        source_locations.extend(locs)
-                
-                # Create detector result
-                detector_result = DetectorResult(
-                    detector_name=detector_name,
-                    check=detector_name,
-                    impact=impact,
-                    confidence=confidence,
-                    description=description,
-                    source_locations=source_locations
-                )
-                
-                # Add to results dictionary
-                if detector_name not in results_by_detector:
-                    results_by_detector[detector_name] = []
-                results_by_detector[detector_name].append(detector_result)
-                
-            except Exception as e:
-                print(f"Warning: Error processing detector result: {e}", file=sys.stderr)
-                continue
+            
+            # detector_findings is a list of finding dictionaries
+            for finding in detector_findings:
+                if not finding or not isinstance(finding, dict):
+                    continue
+                    
+                try:
+                    # Extract detector information
+                    detector_name = finding.get('check', 'unknown')
+                    impact = finding.get('impact', 'Unknown')
+                    confidence = finding.get('confidence', 'Unknown')
+                    description = finding.get('description', '')
+                    
+                    # Extract source locations from elements
+                    source_locations = []
+                    elements = finding.get('elements', [])
+                    
+                    for element in elements:
+                        if isinstance(element, dict):
+                            # Handle dictionary elements (common in detector output)
+                            source_map = element.get('source_mapping', {})
+                            if source_map:
+                                lines = source_map.get('lines', [])
+                                filename = source_map.get('filename_short', source_map.get('filename_relative', ''))
+                                if lines and filename:
+                                    source_locations.append(SourceLocation(
+                                        file_path=filename,
+                                        start_line=lines[0],
+                                        end_line=lines[-1]
+                                    ))
+                    
+                    # Create detector result
+                    detector_result = DetectorResult(
+                        detector_name=detector_name,
+                        check=detector_name,
+                        impact=impact,
+                        confidence=confidence,
+                        description=description,
+                        source_locations=source_locations
+                    )
+                    
+                    # Add to results dictionary
+                    if detector_name not in results_by_detector:
+                        results_by_detector[detector_name] = []
+                    results_by_detector[detector_name].append(detector_result)
+                    findings_count += 1
+                    
+                except Exception as e:
+                    print(f"Warning: Error processing detector finding: {e}", file=sys.stderr)
+                    continue
         
-        print(f"Processed results from {len(results_by_detector)} detectors", file=sys.stderr)
+        print(f"Processed {findings_count} findings from {len(results_by_detector)} detectors with results", file=sys.stderr)
         
     except Exception as e:
         print(f"Warning: Error running detectors: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
     
     return results_by_detector
 
