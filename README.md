@@ -11,11 +11,13 @@ This MCP server wraps Slither static analysis functionality, making it accessibl
 - **Lazy Loading**: Slither analysis is performed only when needed
 - **Caching**: Project facts are cached to `artifacts/project_facts.json` for faster subsequent loads
 - **MCP Tools**: Query contract and function information through MCP tools
+- **Security Analysis**: Run Slither detectors and access results with filtering
 - **Comprehensive Analysis**: Extracts detailed information about:
   - Contract metadata (abstract, interface, library flags)
   - Function signatures and modifiers
   - Inheritance hierarchies
   - Function call relationships (internal, external, library calls)
+  - Security vulnerabilities and code quality issues
   - Source code locations
 
 ## Installation
@@ -57,184 +59,42 @@ When `--use-cache` is specified and `artifacts/project_facts.json` exists in the
 
 ## MCP Tools
 
-The server exposes 8 MCP tools for querying contract and function information:
+The server exposes 11 MCP tools for querying contract and function information:
 
 ### 1. `list_contracts` - List contracts with filters
-
-**Request:**
-```json
-{
-  "filter_type": "concrete",  // "all" | "concrete" | "interface" | "library" | "abstract"
-  "path_pattern": "src/*.sol"  // Optional glob pattern
-}
-```
+Filter contracts by type (concrete, abstract, interface, library) or path pattern.
 
 ### 2. `get_contract` - Get detailed contract information
-
-**Request:**
-```json
-{
-  "contract_key": {"contract_name": "MyContract", "path": "src/MyContract.sol"},
-  "include_functions": true
-}
-```
+Retrieve full contract metadata including functions, inheritance, and flags.
 
 ### 3. `get_contract_source` - Get contract source code
-
-**Request:**
-```json
-{
-  "contract_key": {"contract_name": "MyContract", "path": "src/MyContract.sol"}
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "source_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract MyContract {\n  // contract code\n}",
-  "file_path": "src/MyContract.sol"
-}
-```
-
-**Description:**
-Returns the complete source code of the Solidity file containing the specified contract. This is useful for retrieving the full implementation, including all contracts, imports, and comments in the file.
+Returns the complete source code of the Solidity file containing the specified contract.
 
 ### 4. `get_function_source` - Get function source code
-
-**Request:**
-```json
-{
-  "function_key": {
-    "signature": "transfer(address,uint256)",
-    "contract_name": "MyContract",
-    "path": "src/MyContract.sol"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "source_code": "    function transfer(address to, uint256 amount) public returns (bool) {\n        require(to != address(0), \"Invalid address\");\n        balances[msg.sender] -= amount;\n        balances[to] += amount;\n        return true;\n    }\n",
-  "file_path": "src/MyContract.sol",
-  "line_start": 42,
-  "line_end": 47
-}
-```
-
-**Description:**
-Returns the source code for a specific function identified by its FunctionKey. Unlike `get_contract_source` which returns the entire file, this tool returns only the function's implementation along with the line numbers where it's defined. This is useful for focused analysis of individual functions without needing to parse the entire file.
+Returns the source code for a specific function with line numbers. Useful for focused analysis.
 
 ### 5. `list_functions` - List functions with filters
-
-**Request:**
-```json
-{
-  "contract_key": null,  // Optional: specific contract or null for all
-  "visibility": ["public", "external"],  // Optional filter
-  "has_modifiers": ["view"]  // Optional filter
-}
-```
+Filter functions by contract, visibility, or modifiers.
 
 ### 6. `function_callees` - Get function call relationships
-
-**Request:**
-```json
-{
-  "ext_function_signature": "ContractName.functionName(uint256,address)",
-  "calling_context": {
-    "contract_name": "CallerContract",
-    "path": "src/CallerContract.sol"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "query_context": {
-    "searched_calling_context": "CallerContract@src!CallerContract.sol",
-    "searched_function": "ContractName.functionName(uint256,address)",
-    "searched_contract": "ContractName"
-  },
-  "callees": {
-    "internal_callees": ["ContractName.internalFunc()"],
-    "external_callees": ["OtherContract.externalFunc(uint256)"],
-    "library_callees": ["LibraryName.libraryFunc(bytes)"],
-    "has_low_level_calls": false
-  }
-}
-```
+Returns internal, external, and library callees for a function, including low-level call detection.
 
 ### 7. `get_inherited_contracts` - Get contract inheritance
-
-**Request:**
-```json
-{
-  "contract_key": {"contract_name": "MyContract", "path": "src/MyContract.sol"}
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "contract_key": {"contract_name": "MyContract", "path": "src/MyContract.sol"},
-  "full_inheritance": {
-    "contract_key": {"contract_name": "MyContract", "path": "src/MyContract.sol"},
-    "inherits": [
-      {
-        "contract_key": {"contract_name": "BaseContract", "path": "src/BaseContract.sol"},
-        "inherits": []
-      }
-    ]
-  }
-}
-```
-
-Returns a recursive tree showing all contracts that the specified contract inherits from (its parents and ancestors).
+Returns a recursive tree of all contracts that a contract inherits from (parents and ancestors).
 
 ### 8. `get_derived_contracts` - Get contracts that inherit from this one
-
-**Request:**
-```json
-{
-  "contract_key": {"contract_name": "BaseContract", "path": "src/BaseContract.sol"}
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "contract_key": {"contract_name": "BaseContract", "path": "src/BaseContract.sol"},
-  "full_derived": {
-    "contract_key": {"contract_name": "BaseContract", "path": "src/BaseContract.sol"},
-    "derived_by": [
-      {
-        "contract_key": {"contract_name": "DerivedContract", "path": "src/DerivedContract.sol"},
-        "derived_by": []
-      }
-    ]
-  }
-}
-```
-
-Returns a recursive tree showing all contracts that inherit from the specified contract (its children and descendants). This is the inverse of `get_inherited_contracts`.
+Returns a recursive tree of all contracts that inherit from a contract (children and descendants).
 
 ### 9. `list_function_implementations` - Find function implementations
+Find all implementations of a function signature across contracts.
 
-**Request:**
-```json
-{
-  "function_signature": "myFunction(uint256,address)"
-}
-```
+### 10. `list_detectors` - List available Slither detectors
+Returns metadata about Slither detectors including names, descriptions, impact levels, and confidence ratings. Supports filtering by name or description.
 
-All tools return responses with a `success` boolean and either data fields or an `error_message`. See the tool docstrings for complete response schemas.
+### 11. `run_detectors` - Get detector results with filtering
+Returns cached detector results. Filter by detector names, impact level (High, Medium, Low, Informational), or confidence level (High, Medium, Low).
+
+All tools return responses with a `success` boolean and either data fields or an `error_message`. See individual tool implementations in `slither_mcp/tools/` for detailed schemas and usage.
 
 ## Client Usage
 
@@ -273,6 +133,10 @@ Each tool has its own module with request/response models and implementation:
 - **`get_derived_contracts.py`**: Get contracts that inherit from a given contract (children)
 - **`list_function_implementations.py`**: Find all implementations of a function
 
+**Detector Tools** (security and quality analysis):
+- **`list_detectors.py`**: List available Slither detectors with metadata
+- **`run_detectors.py`**: Retrieve cached detector results with filtering
+
 - **`__init__.py`**: Facade that re-exports all tools for convenience
 
 ### Server
@@ -291,20 +155,7 @@ The server generates and caches artifacts in the target project's `artifacts/` d
 
 - `artifacts/project_facts.json`: Complete project metadata including all contracts and functions
 
-The artifact format includes type metadata for proper deserialization:
-
-```json
-{
-  "_pydantic_type": {
-    "is_list": false,
-    "model_name": "ProjectFacts"
-  },
-  "data": {
-    "contracts": { ... },
-    "project_dir": "/path/to/project"
-  }
-}
-```
+The artifact format includes type metadata for proper deserialization. See `slither_mcp/artifacts.py` for serialization details.
 
 ## Requirements
 

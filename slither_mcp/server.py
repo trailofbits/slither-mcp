@@ -51,6 +51,13 @@ from slither_mcp.tools import (
     FunctionCallersRequest,
     FunctionCallersResponse,
     list_function_callers as list_function_callers_impl,
+    # Detector tools
+    ListDetectorsRequest,
+    ListDetectorsResponse,
+    list_detectors as list_detectors_impl,
+    RunDetectorsRequest,
+    RunDetectorsResponse,
+    run_detectors as run_detectors_impl,
 )
 
 
@@ -261,6 +268,30 @@ def main():
         """
         return list_function_callers_impl(request, project_facts)
     
+    @mcp.tool()
+    def list_detectors(request: ListDetectorsRequest) -> ListDetectorsResponse:
+        """
+        List all available Slither detectors with their metadata.
+        
+        This tool returns information about all available Slither detectors including
+        their names, descriptions, impact levels, and confidence ratings. You can
+        optionally filter by name or description using the name_filter parameter.
+        """
+        return list_detectors_impl(request, project_facts)
+    
+    @mcp.tool()
+    def run_detectors(request: RunDetectorsRequest) -> RunDetectorsResponse:
+        """
+        Retrieve cached Slither detector results with optional filtering.
+        
+        This tool returns the results from running Slither detectors on the project.
+        Results are cached during initialization and can be filtered by detector name,
+        impact level (High, Medium, Low, Informational), and confidence level
+        (High, Medium, Low). Each result includes source locations (file path and
+        line numbers) for the findings.
+        """
+        return run_detectors_impl(request, project_facts)
+    
     # Run the server
     print("Starting Slither MCP server...", file=sys.stderr)
     print(f"Project: {project_path}", file=sys.stderr)
@@ -276,6 +307,8 @@ def main():
     print("  - get_contract_source", file=sys.stderr)
     print("  - get_function_source", file=sys.stderr)
     print("  - list_functions", file=sys.stderr)
+    print("  - list_detectors", file=sys.stderr)
+    print("  - run_detectors", file=sys.stderr)
     mcp.run(transport="stdio", show_banner=False)
 
 

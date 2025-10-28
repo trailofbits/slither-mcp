@@ -62,6 +62,16 @@ from slither_mcp.tools.get_function_source import (
     GetFunctionSourceResponse,
     get_function_source,
 )
+from slither_mcp.tools.list_detectors import (
+    ListDetectorsRequest,
+    ListDetectorsResponse,
+    list_detectors,
+)
+from slither_mcp.tools.run_detectors import (
+    RunDetectorsRequest,
+    RunDetectorsResponse,
+    run_detectors,
+)
 
 __all__ = [
     # Query tools
@@ -101,5 +111,12 @@ __all__ = [
     "FunctionCallersRequest",
     "FunctionCallersResponse",
     "list_function_callers",
+    # Detector tools
+    "ListDetectorsRequest",
+    "ListDetectorsResponse",
+    "list_detectors",
+    "RunDetectorsRequest",
+    "RunDetectorsResponse",
+    "run_detectors",
 ]
 

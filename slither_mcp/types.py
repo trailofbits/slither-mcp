@@ -29,6 +29,34 @@ class FunctionCallees(BaseModel):
     ]
 
 
+class SourceLocation(BaseModel):
+    """Location in source code where a detector finding occurs."""
+    file_path: Annotated[str, Field(description="Path to the source file")]
+    start_line: Annotated[int, Field(description="Starting line number")]
+    end_line: Annotated[int, Field(description="Ending line number")]
+
+
+class DetectorMetadata(BaseModel):
+    """Metadata about a Slither detector."""
+    name: Annotated[str, Field(description="Detector identifier (e.g., 'reentrancy-eth')")]
+    description: Annotated[str, Field(description="Human-readable description of what the detector checks")]
+    impact: Annotated[str, Field(description="Impact level: High, Medium, Low, or Informational")]
+    confidence: Annotated[str, Field(description="Confidence level: High, Medium, or Low")]
+
+
+class DetectorResult(BaseModel):
+    """Result from running a Slither detector."""
+    detector_name: Annotated[str, Field(description="Name of the detector that produced this result")]
+    check: Annotated[str, Field(description="Description of what was checked")]
+    impact: Annotated[str, Field(description="Impact level of this finding")]
+    confidence: Annotated[str, Field(description="Confidence level of this finding")]
+    description: Annotated[str, Field(description="Detailed description of the finding")]
+    source_locations: Annotated[
+        list[SourceLocation],
+        Field(description="Source code locations related to this finding")
+    ]
+
+
 class ContractKey(BaseModel):
     model_config = ConfigDict(frozen=True)
     
@@ -214,6 +242,20 @@ class ContractModel(BaseModel):
 class ProjectFacts(BaseModel):
     contracts: dict[ContractKey, ContractModel]
     project_dir: str
+    detector_results: Annotated[
+        dict[str, list[DetectorResult]],
+        Field(
+            default_factory=dict,
+            description="Mapping of detector name to list of findings from that detector"
+        )
+    ]
+    available_detectors: Annotated[
+        list[DetectorMetadata],
+        Field(
+            default_factory=list,
+            description="List of all available Slither detectors with their metadata"
+        )
+    ]
 
     @model_validator(mode='before')
     @classmethod

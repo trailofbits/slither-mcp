@@ -4,9 +4,12 @@ import pytest
 from slither_mcp.types import (
     ContractKey,
     ContractModel,
+    DetectorMetadata,
+    DetectorResult,
     FunctionModel,
     FunctionCallees,
     ProjectFacts,
+    SourceLocation,
 )
 
 
@@ -400,4 +403,125 @@ def project_facts(
 def empty_project_facts():
     """Empty ProjectFacts for edge case testing."""
     return ProjectFacts(contracts={}, project_dir="/test/empty")
+
+
+@pytest.fixture
+def detector_metadata_list():
+    """List of mock detector metadata."""
+    return [
+        DetectorMetadata(
+            name="reentrancy-eth",
+            description="Reentrancy vulnerabilities (theft of ethers)",
+            impact="High",
+            confidence="Medium"
+        ),
+        DetectorMetadata(
+            name="uninitialized-storage",
+            description="Uninitialized storage variables",
+            impact="High",
+            confidence="High"
+        ),
+        DetectorMetadata(
+            name="naming-convention",
+            description="Conformity to Solidity naming conventions",
+            impact="Informational",
+            confidence="High"
+        ),
+        DetectorMetadata(
+            name="solc-version",
+            description="Incorrect Solidity version",
+            impact="Informational",
+            confidence="High"
+        ),
+    ]
+
+
+@pytest.fixture
+def detector_results_dict():
+    """Dictionary of mock detector results."""
+    return {
+        "reentrancy-eth": [
+            DetectorResult(
+                detector_name="reentrancy-eth",
+                check="reentrancy-eth",
+                impact="High",
+                confidence="Medium",
+                description="Reentrancy in Contract.withdraw() (contracts/Contract.sol#5-10)",
+                source_locations=[
+                    SourceLocation(
+                        file_path="contracts/Contract.sol",
+                        start_line=5,
+                        end_line=10
+                    )
+                ]
+            )
+        ],
+        "uninitialized-storage": [
+            DetectorResult(
+                detector_name="uninitialized-storage",
+                check="uninitialized-storage",
+                impact="High",
+                confidence="High",
+                description="Contract.storageVar (contracts/Contract.sol#3) is never initialized",
+                source_locations=[
+                    SourceLocation(
+                        file_path="contracts/Contract.sol",
+                        start_line=3,
+                        end_line=3
+                    )
+                ]
+            )
+        ],
+        "naming-convention": [
+            DetectorResult(
+                detector_name="naming-convention",
+                check="naming-convention",
+                impact="Informational",
+                confidence="High",
+                description="Parameter 'MyContract._value' (contracts/Contract.sol#15) is not in mixedCase",
+                source_locations=[
+                    SourceLocation(
+                        file_path="contracts/Contract.sol",
+                        start_line=15,
+                        end_line=15
+                    )
+                ]
+            ),
+            DetectorResult(
+                detector_name="naming-convention",
+                check="naming-convention",
+                impact="Informational",
+                confidence="High",
+                description="Function 'MyContract.DoSomething' (contracts/Contract.sol#20-25) is not in mixedCase",
+                source_locations=[
+                    SourceLocation(
+                        file_path="contracts/Contract.sol",
+                        start_line=20,
+                        end_line=25
+                    )
+                ]
+            ),
+        ],
+    }
+
+
+@pytest.fixture
+def project_facts_with_detectors(
+    base_contract,
+    child_contract,
+    base_contract_key,
+    child_contract_key,
+    detector_metadata_list,
+    detector_results_dict,
+):
+    """ProjectFacts with detector data for testing detector tools."""
+    return ProjectFacts(
+        contracts={
+            base_contract_key: base_contract,
+            child_contract_key: child_contract,
+        },
+        project_dir="/test/project",
+        detector_results=detector_results_dict,
+        available_detectors=detector_metadata_list,
+    )
 

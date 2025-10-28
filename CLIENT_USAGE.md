@@ -23,321 +23,99 @@ uv pip install slither-mcp
 ### Connecting to the Server
 
 ```python
-import asyncio
 from slither_mcp.client import SlitherMCPClient
 
-async def main():
-    # Create client
-    client = SlitherMCPClient()
-    
-    # Connect to a project
+async with SlitherMCPClient() as client:
     await client.connect("/path/to/solidity/project", use_cache=True)
-    
     # Use the client...
-    
-    # Close when done
-    await client.close()
-
-asyncio.run(main())
 ```
 
-### Using as a Context Manager
-
-The recommended way to use the client is with an async context manager:
-
-```python
-async def main():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/solidity/project", use_cache=True)
-        
-        # Use the client...
-        # Automatically closes on exit
-
-asyncio.run(main())
-```
+The client automatically closes on exit when used as a context manager.
 
 ## Querying Contracts
 
-### List All Contracts
-
 ```python
-from slither_mcp.client import SlitherMCPClient
-from slither_mcp.tools import ListContractsRequest
-
-async def list_all_contracts():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        # List all contracts
-        response = await client.list_contracts(
-            ListContractsRequest(filter_type="all")
-        )
-        
-        if response.success:
-            print(f"Found {response.total_count} contracts:")
-            for contract_info in response.contracts:
-                print(f"  - {contract_info.key.contract_name}")
-                print(f"    Abstract: {contract_info.is_abstract}")
-                print(f"    Interface: {contract_info.is_interface}")
-```
-
-### Filter Contracts
-
-```python
-from slither_mcp.tools import ListContractsRequest
-
-async def filter_contracts():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        # Get only concrete contracts
-        response = await client.list_contracts(
-            ListContractsRequest(filter_type="concrete")
-        )
-        
-        # Or filter by path pattern
-        response = await client.list_contracts(
-            ListContractsRequest(
-                filter_type="all",
-                path_pattern="src/*.sol"
-            )
-        )
-```
-
-### Get Contract Details
-
-```python
-from slither_mcp.tools import GetContractRequest
+from slither_mcp.tools import ListContractsRequest, GetContractRequest
 from slither_mcp.types import ContractKey
 
-async def get_contract_details():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        # Get detailed contract information
-        response = await client.get_contract(
-            GetContractRequest(
-                contract_key=ContractKey(
-                    contract_name="MyContract",
-                    path="src/MyContract.sol"
-                ),
-                include_functions=True
-            )
-        )
-        
-        if response.success and response.contract:
-            contract = response.contract
-            print(f"Contract: {contract.contract_name}")
-            print(f"Abstract: {contract.is_abstract}")
-            print(f"Interface: {contract.is_interface}")
-            print(f"Declared Functions: {len(contract.functions_declared)}")
-            print(f"Inherited Functions: {len(contract.functions_inherited)}")
-            
-            # Iterate through functions
-            for func in contract.functions_declared:
-                print(f"  - {func.signature}")
+# List contracts with filters
+response = await client.list_contracts(
+    ListContractsRequest(filter_type="concrete", path_pattern="src/*.sol")
+)
+
+# Get contract details
+response = await client.get_contract(
+    GetContractRequest(
+        contract_key=ContractKey(contract_name="MyContract", path="src/MyContract.sol"),
+        include_functions=True
+    )
+)
 ```
 
 ## Querying Functions
 
-### List Functions
-
 ```python
 from slither_mcp.tools import ListFunctionsRequest
 
-async def list_functions():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        # List all functions
-        response = await client.list_functions(
-            ListFunctionsRequest()
-        )
-        
-        # Filter by contract
-        response = await client.list_functions(
-            ListFunctionsRequest(
-                contract_key=ContractKey(
-                    contract_name="MyContract",
-                    path="src/MyContract.sol"
-                )
-            )
-        )
-        
-        # Filter by visibility
-        response = await client.list_functions(
-            ListFunctionsRequest(
-                visibility=["public", "external"]
-            )
-        )
-        
-        # Filter by modifiers
-        response = await client.list_functions(
-            ListFunctionsRequest(
-                has_modifiers=["view", "pure"]
-            )
-        )
-        
-        if response.success:
-            for func_info in response.functions:
-                print(f"{func_info.signature} - {func_info.visibility}")
+# List all functions, or filter by contract, visibility, or modifiers
+response = await client.list_functions(
+    ListFunctionsRequest(
+        contract_key=ContractKey(contract_name="MyContract", path="src/MyContract.sol"),
+        visibility=["public", "external"],
+        has_modifiers=["view"]
+    )
+)
 ```
 
 ## Analysis Tools
 
-### Get Function Callees
-
 ```python
-from slither_mcp.tools import FunctionCalleesRequest
-from slither_mcp.types import ContractKey
+from slither_mcp.tools import (
+    FunctionCalleesRequest,
+    GetInheritedContractsRequest,
+    GetDerivedContractsRequest,
+    ListFunctionImplementationsRequest,
+)
 
-async def get_function_callees():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        response = await client.function_callees(
-            FunctionCalleesRequest(
-                ext_function_signature="MyContract.transfer(address,uint256)",
-                calling_context=ContractKey(
-                    contract_name="MyContract",
-                    path="src/MyContract.sol"
-                )
-            )
-        )
-        
-        if response.success:
-            print("Internal callees:")
-            for callee in response.internal_callees:
-                print(f"  - {callee}")
-            
-            print("External callees:")
-            for callee in response.external_callees:
-                print(f"  - {callee}")
-            
-            print("Library callees:")
-            for callee in response.library_callees:
-                print(f"  - {callee}")
-```
+# Get function call relationships
+response = await client.function_callees(
+    FunctionCalleesRequest(
+        ext_function_signature="MyContract.transfer(address,uint256)",
+        calling_context=ContractKey(contract_name="MyContract", path="src/MyContract.sol")
+    )
+)
 
-### Get Inheritance Hierarchy
+# Get inheritance hierarchy (parents)
+response = await client.get_inherited_contracts(
+    GetInheritedContractsRequest(
+        contract_key=ContractKey(contract_name="MyContract", path="src/MyContract.sol")
+    )
+)
 
-```python
-from slither_mcp.tools import GetInheritedContractsRequest
-from slither_mcp.types import ContractKey
+# Get derived contracts (children)
+response = await client.get_derived_contracts(
+    GetDerivedContractsRequest(
+        contract_key=ContractKey(contract_name="BaseContract", path="src/BaseContract.sol")
+    )
+)
 
-async def get_inheritance():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        # Get contracts that MyContract inherits from (parents)
-        response = await client.get_inherited_contracts(
-            GetInheritedContractsRequest(
-                contract_key=ContractKey(
-                    contract_name="MyContract",
-                    path="src/MyContract.sol"
-                )
-            )
-        )
-        
-        if response.success and response.full_inheritance:
-            def print_inheritance(node, indent=0):
-                print("  " * indent + f"- {node.contract_key.contract_name}")
-                for parent in node.inherits:
-                    print_inheritance(parent, indent + 1)
-            
-            print("Contracts that MyContract inherits from:")
-            print_inheritance(response.full_inheritance)
-```
-
-### Get Derived Contracts
-
-```python
-from slither_mcp.tools import GetDerivedContractsRequest
-from slither_mcp.types import ContractKey
-
-async def get_derived():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        # Get contracts that inherit from BaseContract (children)
-        response = await client.get_derived_contracts(
-            GetDerivedContractsRequest(
-                contract_key=ContractKey(
-                    contract_name="BaseContract",
-                    path="src/BaseContract.sol"
-                )
-            )
-        )
-        
-        if response.success and response.full_derived:
-            def print_derived(node, indent=0):
-                print("  " * indent + f"- {node.contract_key.contract_name}")
-                for child in node.derived_by:
-                    print_derived(child, indent + 1)
-            
-            print("Contracts that inherit from BaseContract:")
-            print_derived(response.full_derived)
-```
-
-### Find Function Implementations
-
-```python
-from slither_mcp.tools import ListFunctionImplementationsRequest
-from slither_mcp.types import ContractKey
-
-async def find_implementations():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        response = await client.list_function_implementations(
-            ListFunctionImplementationsRequest(
-                contract_key=ContractKey(
-                    contract_name="IERC20",
-                    path="src/interfaces/IERC20.sol"
-                ),
-                function_signature="transfer(address,uint256)"
-            )
-        )
-        
-        if response.success:
-            print(f"Found {len(response.implementations)} implementations:")
-            for impl in response.implementations:
-                print(f"  - {impl.contract_name} at {impl.path}")
+# Find function implementations
+response = await client.list_function_implementations(
+    ListFunctionImplementationsRequest(
+        contract_key=ContractKey(contract_name="IERC20", path="src/interfaces/IERC20.sol"),
+        function_signature="transfer(address,uint256)"
+    )
+)
 ```
 
 ## Helper Methods
 
-### Get All Contracts with Full Details
-
 ```python
-async def get_all_contracts():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        # This helper method fetches all contracts with full details
-        contracts = await client.get_all_contracts()
-        
-        for contract in contracts:
-            print(f"Contract: {contract.contract_name}")
-            print(f"  Functions: {len(contract.functions_declared)}")
-```
+# Get all contracts with full details
+contracts = await client.get_all_contracts()
 
-### Build ProjectFacts
-
-```python
-async def build_project_facts():
-    async with SlitherMCPClient() as client:
-        await client.connect("/path/to/project", use_cache=True)
-        
-        # Build a complete ProjectFacts object
-        facts = await client.get_project_facts()
-        
-        print(f"Project: {facts.project_dir}")
-        print(f"Contracts: {len(facts.contracts)}")
-        
-        # Access contracts
-        for contract_key, contract_model in facts.contracts.items():
-            print(f"  - {contract_key.contract_name}")
+# Build a complete ProjectFacts object
+facts = await client.get_project_facts()
 ```
 
 ## Integration with Pydantic-AI Agents
@@ -346,193 +124,42 @@ The client includes tool wrappers that make MCP tools compatible with pydantic-a
 
 ### Available Tool Wrappers
 
-All MCP tools have corresponding wrapper creators:
-
 **Query Tools:**
-- `create_list_contracts_tool()` - List contracts with filters
-- `create_get_contract_tool()` - Get detailed contract information
-- `create_list_functions_tool()` - List functions with filters
+- `create_list_contracts_tool()`, `create_get_contract_tool()`, `create_list_functions_tool()`
 
 **Analysis Tools:**
-- `create_function_callees_tool()` - Get function call relationships
-- `create_get_inherited_contracts_tool()` - Get contract inheritance hierarchy (parents)
-- `create_get_derived_contracts_tool()` - Get contracts that inherit from a given contract (children)
-- `create_function_implementations_tool()` - Find function implementations
+- `create_function_callees_tool()`, `create_get_inherited_contracts_tool()`, `create_get_derived_contracts_tool()`, `create_function_implementations_tool()`
 
 ### Basic Agent Setup
 
 ```python
-from slither_mcp.client import (
-    SlitherMCPClient,
-    create_list_contracts_tool,
-    create_get_contract_tool,
-    create_function_callees_tool,
-    create_get_inherited_contracts_tool,
-    create_get_derived_contracts_tool,
-)
+from slither_mcp.client import SlitherMCPClient, create_list_contracts_tool, create_get_contract_tool
 from pydantic_ai import Agent
 
-async def use_with_agent():
-    # Connect client
-    client = SlitherMCPClient()
-    await client.connect("/path/to/project", use_cache=True)
-    
-    # Create tool wrappers (choose the ones you need)
-    list_contracts_tool = create_list_contracts_tool(client)
-    get_contract_tool = create_get_contract_tool(client)
-    callees_tool = create_function_callees_tool(client)
-    inherited_tool = create_get_inherited_contracts_tool(client)
-    derived_tool = create_get_derived_contracts_tool(client)
-    
-    # Create agent with tools
-    agent = Agent(
-        "openai:gpt-4",
-        tools=[
-            list_contracts_tool,
-            get_contract_tool,
-            callees_tool,
-            inherited_tool,
-            derived_tool,
-        ],
-    )
-    
-    # Use the agent
-    result = await agent.run(
-        "What contracts inherit from ERC20 and what functions does transfer call?"
-    )
-    print(result.data)
-    
-    # Clean up
-    await client.close()
-```
+client = SlitherMCPClient()
+await client.connect("/path/to/project", use_cache=True)
 
-### Using All Available Tools
+# Create tool wrappers
+tools = [create_list_contracts_tool(client), create_get_contract_tool(client)]
 
-```python
-from slither_mcp.client import (
-    SlitherMCPClient,
-    create_list_contracts_tool,
-    create_get_contract_tool,
-    create_list_functions_tool,
-    create_function_callees_tool,
-    create_get_inherited_contracts_tool,
-    create_get_derived_contracts_tool,
-    create_function_implementations_tool,
-)
-from pydantic_ai import Agent
-
-async def agent_with_all_tools():
-    client = SlitherMCPClient()
-    await client.connect("/path/to/project", use_cache=True)
-    
-    # Create all available tool wrappers
-    tools = [
-        create_list_contracts_tool(client),
-        create_get_contract_tool(client),
-        create_list_functions_tool(client),
-        create_function_callees_tool(client),
-        create_get_inherited_contracts_tool(client),
-        create_get_derived_contracts_tool(client),
-        create_function_implementations_tool(client),
-    ]
-    
-    # Create agent with all tools
-    agent = Agent("openai:gpt-4", tools=tools)
-    
-    # The agent now has full access to analyze the Solidity project
-    result = await agent.run(
-        "Analyze the contract architecture and identify potential security issues"
-    )
-    print(result.data)
-    
-    await client.close()
+# Create agent with tools
+agent = Agent("openai:gpt-4", tools=tools)
+result = await agent.run("What concrete contracts exist in this project?")
 ```
 
 ## Complete Example
 
-Here's a complete example that demonstrates multiple features:
-
-```python
-import asyncio
-from slither_mcp.client import SlitherMCPClient
-from slither_mcp.tools import (
-    ListContractsRequest,
-    GetContractRequest,
-    ListFunctionsRequest,
-    FunctionCalleesRequest,
-)
-
-async def analyze_project():
-    async with SlitherMCPClient() as client:
-        # Connect to project
-        await client.connect("/path/to/solidity/project", use_cache=True)
-        
-        # List all concrete contracts
-        contracts_response = await client.list_contracts(
-            ListContractsRequest(filter_type="concrete")
-        )
-        
-        if not contracts_response.success:
-            print(f"Error: {contracts_response.error_message}")
-            return
-        
-        print(f"Found {contracts_response.total_count} concrete contracts\n")
-        
-        # Analyze each contract
-        for contract_info in contracts_response.contracts[:3]:  # First 3
-            print(f"Analyzing {contract_info.key.contract_name}...")
-            
-            # Get contract details
-            contract_response = await client.get_contract(
-                GetContractRequest(
-                    contract_key=contract_info.key,
-                    include_functions=True
-                )
-            )
-            
-            if contract_response.success and contract_response.contract:
-                contract = contract_response.contract
-                print(f"  Functions: {len(contract.functions_declared)}")
-                
-                # Get callees for public/external functions
-                for func in contract.functions_declared:
-                    if func.visibility in ["public", "external"]:
-                        callees_response = await client.function_callees(
-                            FunctionCalleesRequest(
-                                ext_function_signature=f"{contract.contract_name}.{func.signature}",
-                                calling_context=contract_info.key
-                            )
-                        )
-                        
-                        if callees_response.success:
-                            total_calls = (
-                                len(callees_response.internal_callees) +
-                                len(callees_response.external_callees) +
-                                len(callees_response.library_callees)
-                            )
-                            print(f"    {func.signature}: {total_calls} calls")
-            
-            print()
-
-if __name__ == "__main__":
-    asyncio.run(analyze_project())
-```
+See test files in `tests/` for complete working examples using the client API.
 
 ## Error Handling
 
-All client methods return responses with a `success` boolean field. Always check this before accessing data:
+All client methods return responses with a `success` boolean field:
 
 ```python
-response = await client.list_contracts(
-    ListContractsRequest(filter_type="all")
-)
-
+response = await client.list_contracts(ListContractsRequest(filter_type="all"))
 if response.success:
-    # Process response.contracts
-    for contract in response.contracts:
-        print(contract.key.contract_name)
+    # Process response data
 else:
-    # Handle error
     print(f"Error: {response.error_message}")
 ```
 
