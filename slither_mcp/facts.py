@@ -1,6 +1,10 @@
 """Project facts generation from Slither analysis."""
 
 import sys
+import inspect
+
+from slither.detectors import all_detectors as slither_detectors
+from slither.detectors.abstract_detector import AbstractDetector
 
 from slither_mcp.callees import get_callees
 from slither_mcp.types import (
@@ -124,16 +128,29 @@ def get_detector_metadata(slither) -> list[DetectorMetadata]:
     Extract metadata for all available detectors.
     
     Args:
-        slither: Slither or LazySlither object
+        slither: Slither or LazySlither object (not used, but kept for consistency)
         
     Returns:
         List of DetectorMetadata for all available detectors
     """
     metadata_list = []
     
-    # Get all registered detectors from Slither
-    for detector_class in slither.detector_classes:
+    # Get all detector classes from the slither.detectors.all_detectors module
+    for name in dir(slither_detectors):
+        # Skip private attributes and non-detector classes
+        if name.startswith('_'):
+            continue
+            
+        detector_class = getattr(slither_detectors, name)
+        
+        # Check if it's a class and a subclass of AbstractDetector
+        if not (inspect.isclass(detector_class) and 
+                issubclass(detector_class, AbstractDetector) and 
+                detector_class is not AbstractDetector):
+            continue
+        
         try:
+            # Extract detector metadata
             metadata = DetectorMetadata(
                 name=detector_class.ARGUMENT,
                 description=detector_class.HELP,
@@ -142,7 +159,7 @@ def get_detector_metadata(slither) -> list[DetectorMetadata]:
             )
             metadata_list.append(metadata)
         except Exception as e:
-            print(f"Warning: Could not extract metadata for detector: {e}", file=sys.stderr)
+            print(f"Warning: Could not extract metadata for detector {name}: {e}", file=sys.stderr)
             continue
     
     return metadata_list
