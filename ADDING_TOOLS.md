@@ -139,6 +139,7 @@ Before submitting your new tool, ensure:
 - [ ] Test file created in `tests/`
 - [ ] Happy path tests written
 - [ ] Edge case tests written
+- [ ] Integration tests written (see `tests/test_detector_integration.py`)
 - [ ] All tests passing (`uv run pytest`)
 - [ ] Client tool wrapper created (optional, in `slither_mcp/client/tool_wrappers.py`)
 - [ ] Main README.md updated with tool documentation
