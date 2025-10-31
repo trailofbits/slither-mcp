@@ -1,0 +1,63 @@
+[project]
+name = "slither-mcp"
+version = "0.2.0"
+description = "MCP server for Slither static analysis of Solidity contracts"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "AGPL-3.0-or-later"}
+authors = [
+    {name = "Trail of Bits", email = "opensource@trailofbits.com"},
+]
+keywords = [
+    "slither",
+    "solidity",
+    "mcp",
+    "model-context-protocol",
+    "static-analysis",
+    "smart-contracts",
+    "ethereum",
+    "security",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "fastmcp>=2.13.0",
+    "mcp>=1.19.0",
+    "pydantic>=2.0.0",
+    "slither-analyzer>=0.11.3",
+    "crytic-compile>=0.3.0",
+    "sentry-sdk>=2.43.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/trailofbits/slither-mcp"
+Repository = "https://github.com/trailofbits/slither-mcp"
+Issues = "https://github.com/trailofbits/slither-mcp/issues"
+Documentation = "https://github.com/trailofbits/slither-mcp#readme"
+Changelog = "https://github.com/trailofbits/slither-mcp/blob/main/CHANGELOG.md"
+
+[project.scripts]
+slither-mcp = "slither_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+

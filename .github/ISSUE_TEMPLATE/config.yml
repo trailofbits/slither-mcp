@@ -1,0 +1,9 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/trailofbits/slither-mcp/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: Slither Documentation
+    url: https://github.com/crytic/slither
+    about: Documentation and support for Slither itself
+
