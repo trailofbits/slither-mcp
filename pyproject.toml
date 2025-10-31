@@ -1,6 +1,6 @@
 [project]
 name = "slither-mcp"
-version = "0.2.0"
+version = "1.0.0"
 description = "MCP server for Slither static analysis of Solidity contracts"
 readme = "README.md"
 requires-python = ">=3.11"
