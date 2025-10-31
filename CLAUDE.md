@@ -233,83 +233,15 @@ class MyToolRequest(JSONStringTolerantModel):
 
 ### Overview
 
-Slither MCP includes a metrics system to track tool usage and errors. Metrics are **opt-in by default** (enabled unless explicitly disabled).
+Slither MCP includes a metrics system to track tool usage and errors. Metrics are **enabled by default** and can be permanently disabled (opt-out).
 
 ### Key Components
-
-**`metrics.py` module** provides:
-- `get_metrics_config_path()`: Returns path to `~/.slither-mcp/metrics_disabled`
-- `is_metrics_disabled()`: Checks if metrics are disabled
-- `disable_metrics_permanently()`: Creates the marker file
 
 **`server.py` integration**:
 - Checks metrics status on startup
 - Initializes Sentry SDK if metrics enabled
 - Tracks tool calls, successes, failures, and exceptions
 - Blocks `--enhanced-error-reporting` if metrics disabled
-
-### Metrics Events
-
-Each tool wrapper logs the following events (when `sentry_enabled` is True):
-
-1. **`tool_call`** - Logged before tool execution
-2. **`tool_success`/`tool_failure`** - Logged after checking `result.success`
-3. **`tool_exception`** - Logged when an exception is caught
-
-**Example pattern:**
-```python
-@mcp.tool()
-def my_tool(request: MyRequest) -> MyResponse:
-    if sentry_enabled:
-        sentry_sdk.capture_message("tool_call", level="info", extras={"tool_name": "my_tool"})
-    try:
-        result = my_tool_impl(request, project_facts)
-        if sentry_enabled:
-            sentry_sdk.capture_message(
-                "tool_success" if result.success else "tool_failure",
-                level="info",
-                extras={"tool_name": "my_tool"}
-            )
-        return result
-    except Exception as e:
-        if sentry_enabled:
-            sentry_sdk.capture_exception(e)
-            sentry_sdk.capture_message("tool_exception", level="error", extras={"tool_name": "my_tool"})
-        return MyResponse(success=False, error_message=str(e))
-```
-
-### What is NOT Logged
-
-**Critical**: Metrics never log:
-- Request parameters
-- Contract names or addresses
-- Function signatures
-- Project paths
-- Any sensitive or project-specific data
-
-Only tool names and success/failure status are transmitted.
-
-### CLI Flags
-
-- `--disable-metrics`: Permanently disable metrics (creates marker file)
-- `--enhanced-error-reporting`: Enable enhanced error details (requires metrics enabled)
-
-### Testing with Metrics
-
-When writing tests, metrics are typically disabled by default (no Sentry DSN configured). To test metrics behavior:
-
-```python
-# Test that metrics can be disabled
-def test_disable_metrics():
-    # Run server with --disable-metrics flag
-    # Verify marker file is created
-    assert get_metrics_config_path().exists()
-
-# Test that enhanced error reporting is blocked
-def test_enhanced_blocked_when_disabled():
-    # With metrics disabled, --enhanced-error-reporting should exit(1)
-    pass
-```
 
 ## Testing Guidelines
 
