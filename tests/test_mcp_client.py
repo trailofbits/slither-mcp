@@ -28,18 +28,18 @@ class TestSlitherMCPClientConnection:
     @pytest.mark.asyncio
     async def test_client_initialization(self):
         """Test that client initializes with correct default state."""
-        client = SlitherMCPClient()
+        client = SlitherMCPClient("/test/project")
         
         assert client._session is None
         assert client._read is None
         assert client._write is None
-        assert client._project_path is None
+        assert client._project_path == "/test/project"
         assert client._stdio_context is None
 
     @pytest.mark.asyncio
     async def test_connect_success(self):
         """Test successful connection to MCP server."""
-        client = SlitherMCPClient()
+        client = SlitherMCPClient("/test/project")
         
         # Mock the stdio_client and session
         mock_read = MagicMock()
@@ -55,16 +55,16 @@ class TestSlitherMCPClientConnection:
         
         with patch('slither_mcp.client.mcp_client.stdio_client', return_value=mock_stdio_context):
             with patch('slither_mcp.client.mcp_client.ClientSession', return_value=mock_session):
-                await client.connect(project_path="/test/project")
+                await client.connect()
                 
                 assert client._session is not None
                 assert client._project_path == "/test/project"
                 mock_session.initialize.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_connect_without_default_path(self):
-        """Test connection without setting default path."""
-        client = SlitherMCPClient()
+    async def test_connect_no_path_argument(self):
+        """Test that connect() does not require path argument."""
+        client = SlitherMCPClient("/test/project")
 
         mock_read = MagicMock()
         mock_write = MagicMock()
@@ -81,16 +81,17 @@ class TestSlitherMCPClientConnection:
             with patch('slither_mcp.client.mcp_client.ClientSession', return_value=mock_session):
                 await client.connect()
 
-                # Verify the command args don't include --path or --use-cache (both removed)
+                # Verify the command args don't include --path or --use-cache
                 call_args = mock_stdio.call_args[0][0]
                 assert "--use-cache" not in call_args.args
                 assert "--path" not in call_args.args
-                assert client._project_path is None
+                # Path is set during initialization
+                assert client._project_path == "/test/project"
 
     @pytest.mark.asyncio
     async def test_close(self):
         """Test closing the client connection."""
-        client = SlitherMCPClient()
+        client = SlitherMCPClient("/test/project")
         
         # Set up mock session
         mock_session = AsyncMock()
@@ -110,7 +111,7 @@ class TestSlitherMCPClientConnection:
     @pytest.mark.asyncio
     async def test_close_handles_errors(self):
         """Test that close handles errors gracefully."""
-        client = SlitherMCPClient()
+        client = SlitherMCPClient("/test/project")
         
         # Set up mock session that raises on exit
         mock_session = AsyncMock()
@@ -128,7 +129,7 @@ class TestSlitherMCPClientConnection:
     @pytest.mark.asyncio
     async def test_context_manager(self):
         """Test using client as async context manager."""
-        client = SlitherMCPClient()
+        client = SlitherMCPClient("/test/project")
         
         # Test __aenter__ and __aexit__
         async with client:
@@ -139,7 +140,7 @@ class TestSlitherMCPClientConnection:
     @pytest.mark.asyncio
     async def test_ensure_connected_raises_when_not_connected(self):
         """Test that operations fail when not connected."""
-        client = SlitherMCPClient()
+        client = SlitherMCPClient("/test/project")
         
         with pytest.raises(RuntimeError, match="not connected"):
             await client.list_contracts(ListContractsRequest(path="/test/project"))
@@ -151,12 +152,11 @@ class TestSlitherMCPClientTools:
     @pytest.fixture
     def mock_connected_client(self):
         """Create a mock connected client."""
-        client = SlitherMCPClient()
+        client = SlitherMCPClient("/test/project")
         
         # Mock the session
         mock_session = AsyncMock()
         client._session = mock_session
-        client._project_path = "/test/project"
         
         return client, mock_session
 
@@ -354,12 +354,11 @@ class TestSlitherMCPClientHelpers:
     @pytest.fixture
     def mock_connected_client(self):
         """Create a mock connected client."""
-        client = SlitherMCPClient()
+        client = SlitherMCPClient("/test/project")
         
         # Mock the session
         mock_session = AsyncMock()
         client._session = mock_session
-        client._project_path = "/test/project"
         
         return client, mock_session
 
@@ -499,12 +498,11 @@ class TestSlitherMCPClientErrorHandling:
     @pytest.fixture
     def mock_connected_client(self):
         """Create a mock connected client."""
-        client = SlitherMCPClient()
+        client = SlitherMCPClient("/test/project")
         
         # Mock the session
         mock_session = AsyncMock()
         client._session = mock_session
-        client._project_path = "/test/project"
         
         return client, mock_session
 

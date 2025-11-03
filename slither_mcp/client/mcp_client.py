@@ -49,18 +49,23 @@ class SlitherMCPClient:
     automatically handling serialization/deserialization of Pydantic models.
     """
     
-    def __init__(self):
-        """Initialize the MCP client (not yet connected)."""
+    def __init__(self, project_path: str):
+        """
+        Initialize the MCP client (not yet connected).
+        
+        Args:
+            project_path: Path to the Solidity project to analyze. This path will be
+                used for all tool calls made through this client.
+        """
         self._session: ClientSession | None = None
         self._read = None
         self._write = None
         self._process = None
-        self._project_path: str | None = None
+        self._project_path: str = os.path.abspath(project_path)
         self._stdio_context = None
     
     async def connect(
         self, 
-        project_path: str | None = None, 
         enhanced_error_reporting: bool = False,
         disable_metrics: bool = False
     ) -> None:
@@ -68,20 +73,13 @@ class SlitherMCPClient:
         Connect to the Slither MCP server.
 
         Args:
-            project_path: Optional default path to use for all requests. Can be overridden per-request.
             enhanced_error_reporting: Enable Sentry error reporting for comprehensive exception monitoring.
             disable_metrics: Permanently disable metrics and error reporting.
 
         Note:
             ClientSession MUST be used as an async context manager to start
             the _receive_loop task. Without this, messages won't be routed properly.
-
-            Each tool now requires a 'path' parameter. You can either:
-            1. Set a default path here via project_path argument
-            2. Pass path in each individual request
         """
-        if project_path:
-            self._project_path = os.path.abspath(project_path)
 
         # Determine the command to run the MCP server
         command = "uv"
@@ -199,6 +197,7 @@ class SlitherMCPClient:
         Returns:
             Response containing matching contracts
         """
+        request.path = self._project_path
         return await self._call_tool("list_contracts", request, ListContractsResponse)
     
     async def get_contract(
@@ -214,6 +213,7 @@ class SlitherMCPClient:
         Returns:
             Response with contract details
         """
+        request.path = self._project_path
         return await self._call_tool("get_contract", request, GetContractResponse)
     
     async def get_contract_source(
@@ -229,6 +229,7 @@ class SlitherMCPClient:
         Returns:
             Response with source code and file path
         """
+        request.path = self._project_path
         return await self._call_tool("get_contract_source", request, GetContractSourceResponse)
     
     async def get_function_source(
@@ -244,6 +245,7 @@ class SlitherMCPClient:
         Returns:
             Response with function source code, file path, and line numbers
         """
+        request.path = self._project_path
         return await self._call_tool("get_function_source", request, GetFunctionSourceResponse)
     
     async def list_functions(
@@ -259,6 +261,7 @@ class SlitherMCPClient:
         Returns:
             Response containing matching functions
         """
+        request.path = self._project_path
         return await self._call_tool("list_functions", request, ListFunctionsResponse)
     
     # Analysis Tools
@@ -276,6 +279,7 @@ class SlitherMCPClient:
         Returns:
             Response with internal, external, and library callees
         """
+        request.path = self._project_path
         return await self._call_tool("function_callees", request, FunctionCalleesResponse)
     
     async def function_callers(
@@ -291,6 +295,7 @@ class SlitherMCPClient:
         Returns:
             Response with internal, external, and library callers
         """
+        request.path = self._project_path
         return await self._call_tool("function_callers", request, FunctionCallersResponse)
     
     async def get_inherited_contracts(
@@ -306,6 +311,7 @@ class SlitherMCPClient:
         Returns:
             Response with inheritance tree
         """
+        request.path = self._project_path
         return await self._call_tool("get_inherited_contracts", request, GetInheritedContractsResponse)
     
     async def get_derived_contracts(
@@ -321,6 +327,7 @@ class SlitherMCPClient:
         Returns:
             Response with derived contracts tree
         """
+        request.path = self._project_path
         return await self._call_tool("get_derived_contracts", request, GetDerivedContractsResponse)
     
     async def list_function_implementations(
@@ -336,25 +343,19 @@ class SlitherMCPClient:
         Returns:
             Response with implementing contracts
         """
+        request.path = self._project_path
         return await self._call_tool("list_function_implementations", request, ListFunctionImplementationsResponse)
     
     # Helper methods for common patterns
     
-    async def get_all_contracts(self, path: str | None = None) -> list[ContractModel]:
+    async def get_all_contracts(self) -> list[ContractModel]:
         """
         Get all contracts in the project.
-
-        Args:
-            path: Project path (uses default from connect() if not provided)
 
         Returns:
             List of all contract models
         """
-        project_path = path or self._project_path
-        if not project_path:
-            raise ValueError("No project path provided and no default set in connect()")
-
-        request = ListContractsRequest(path=project_path, filter_type="all")
+        request = ListContractsRequest(path=self._project_path, filter_type="all")
         response = await self.list_contracts(request)
 
         if not response.success or not response.contracts:
@@ -364,7 +365,7 @@ class SlitherMCPClient:
         contracts = []
         for contract_info in response.contracts:
             contract_request = GetContractRequest(
-                path=project_path,
+                path=self._project_path,
                 contract_key=contract_info.key,
                 include_functions=True
             )
@@ -374,35 +375,28 @@ class SlitherMCPClient:
 
         return contracts
     
-    async def get_project_facts(self, path: str | None = None) -> ProjectFacts:
+    async def get_project_facts(self) -> ProjectFacts:
         """
         Build a ProjectFacts object from the MCP server data.
 
         This mimics the old build_project_facts() function but uses MCP.
 
-        Args:
-            path: Project path (uses default from connect() if not provided)
-
         Returns:
             ProjectFacts with all contract data
         """
-        project_path = path or self._project_path
-        if not project_path:
-            raise ValueError("No project path provided and no default set in connect()")
-
         # Get all contracts
-        request = ListContractsRequest(path=project_path, filter_type="all")
+        request = ListContractsRequest(path=self._project_path, filter_type="all")
         response = await self.list_contracts(request)
 
         if not response.success or not response.contracts:
-            return ProjectFacts(contracts={}, project_dir=project_path)
+            return ProjectFacts(contracts={}, project_dir=self._project_path)
 
         # Build contracts dict
         contracts = {}
         for contract_info in response.contracts:
             # Get full contract details
             contract_request = GetContractRequest(
-                path=project_path,
+                path=self._project_path,
                 contract_key=contract_info.key,
                 include_functions=True
             )
@@ -412,6 +406,144 @@ class SlitherMCPClient:
 
         return ProjectFacts(
             contracts=contracts,
-            project_dir=project_path
+            project_dir=self._project_path
         )
+    
+    # Tool wrappers for pydantic-ai agents
+    
+    def create_list_contracts_tool(self):
+        """
+        Create a list_contracts tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def list_contracts(request: ListContractsRequest) -> ListContractsResponse:
+            """List all contracts with optional filters."""
+            request.path = self._project_path
+            return await self.list_contracts(request)
+        
+        return list_contracts
+    
+    def create_get_contract_tool(self):
+        """
+        Create a get_contract tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def get_contract(request: GetContractRequest) -> GetContractResponse:
+            """Get detailed information about a specific contract."""
+            request.path = self._project_path
+            return await self.get_contract(request)
+        
+        return get_contract
+    
+    def create_get_contract_source_tool(self):
+        """
+        Create a get_contract_source tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def get_contract_source(request: GetContractSourceRequest) -> GetContractSourceResponse:
+            """Get the full source code of the file where a contract is implemented."""
+            request.path = self._project_path
+            return await self.get_contract_source(request)
+        
+        return get_contract_source
+    
+    def create_get_function_source_tool(self):
+        """
+        Create a get_function_source tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def get_function_source(request: GetFunctionSourceRequest) -> GetFunctionSourceResponse:
+            """Get the source code of a specific function."""
+            request.path = self._project_path
+            return await self.get_function_source(request)
+        
+        return get_function_source
+    
+    def create_list_functions_tool(self):
+        """
+        Create a list_functions tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def list_functions(request: ListFunctionsRequest) -> ListFunctionsResponse:
+            """List functions with optional filters."""
+            request.path = self._project_path
+            return await self.list_functions(request)
+        
+        return list_functions
+    
+    def create_function_callees_tool(self):
+        """
+        Create a function_callees tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def function_callees(request: FunctionCalleesRequest) -> FunctionCalleesResponse:
+            """Get the internal, external, and library callees for a function."""
+            request.path = self._project_path
+            return await self.function_callees(request)
+        
+        return function_callees
+    
+    def create_function_callers_tool(self):
+        """
+        Create a function_callers tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def function_callers(request: FunctionCallersRequest) -> FunctionCallersResponse:
+            """Get all functions that call the target function, grouped by call type."""
+            request.path = self._project_path
+            return await self.function_callers(request)
+        
+        return function_callers
+    
+    def create_get_inherited_contracts_tool(self):
+        """
+        Create a get_inherited_contracts tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def get_inherited_contracts(
+            request: GetInheritedContractsRequest
+        ) -> GetInheritedContractsResponse:
+            """Get the inherited contracts for a contract."""
+            request.path = self._project_path
+            return await self.get_inherited_contracts(request)
+        
+        return get_inherited_contracts
+    
+    def create_get_derived_contracts_tool(self):
+        """
+        Create a get_derived_contracts tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def get_derived_contracts(
+            request: GetDerivedContractsRequest
+        ) -> GetDerivedContractsResponse:
+            """Get the derived contracts for a contract (contracts that inherit from it)."""
+            request.path = self._project_path
+            return await self.get_derived_contracts(request)
+        
+        return get_derived_contracts
+    
+    def create_function_implementations_tool(self):
+        """
+        Create a list_function_implementations tool for pydantic-ai agents.
+        
+        Returns a wrapper function that pre-populates the path parameter.
+        """
+        async def list_function_implementations(
+            request: ListFunctionImplementationsRequest
+        ) -> ListFunctionImplementationsResponse:
+            """List all contracts that implement a specific function signature."""
+            request.path = self._project_path
+            return await self.list_function_implementations(request)
+        
+        return list_function_implementations
 
