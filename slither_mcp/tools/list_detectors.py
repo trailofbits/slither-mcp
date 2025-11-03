@@ -1,7 +1,7 @@
 """Tool for listing available Slither detectors."""
 
-from typing import Optional
-from pydantic import BaseModel
+from typing import Annotated, Optional
+from pydantic import BaseModel, Field
 
 from slither_mcp.types import (
     DetectorMetadata,
@@ -12,7 +12,7 @@ from slither_mcp.types import (
 
 class ListDetectorsRequest(JSONStringTolerantModel):
     """Request to list available Slither detectors."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     name_filter: Optional[str] = None
 
 

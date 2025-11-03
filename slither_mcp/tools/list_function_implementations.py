@@ -15,7 +15,7 @@ from slither_mcp.types import (
 class ListFunctionImplementationsRequest(JSONStringTolerantModel):
     """Request to find contracts implementing a function."""
 
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     contract_key: Annotated[
         ContractKey,
         Field(description="The contract key (typically an abstract contract or interface)")

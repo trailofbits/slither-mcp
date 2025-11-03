@@ -156,9 +156,9 @@ These helper methods are convenience wrappers that call the appropriate tools an
 
 ## Integration with Pydantic-AI Agents
 
-The client includes tool wrappers that make MCP tools compatible with pydantic-ai agents.
+The `SlitherMCPClient` includes `create_*_tool()` methods that make MCP tools compatible with pydantic-ai agents.
 
-### Available Tool Wrappers
+### Available Tool Creation Methods
 
 **Query Tools:**
 - `create_list_contracts_tool()`, `create_get_contract_tool()`, `create_list_functions_tool()`
@@ -169,14 +169,14 @@ The client includes tool wrappers that make MCP tools compatible with pydantic-a
 ### Basic Agent Setup
 
 ```python
-from slither_mcp.client import SlitherMCPClient, create_list_contracts_tool, create_get_contract_tool
+from slither_mcp.client import SlitherMCPClient
 from pydantic_ai import Agent
 
 client = SlitherMCPClient()
 await client.connect()
 
-# Create tool wrappers
-tools = [create_list_contracts_tool(client), create_get_contract_tool(client)]
+# Create tools from client methods
+tools = [client.create_list_contracts_tool(), client.create_get_contract_tool()]
 
 # Create agent with tools
 agent = Agent("openai:gpt-4", tools=tools)
@@ -185,7 +185,7 @@ agent = Agent("openai:gpt-4", tools=tools)
 result = await agent.run("What concrete contracts exist in /path/to/project?")
 ```
 
-**Note:** Tool wrappers still require the `path` parameter in requests. When using with agents, ensure the agent's prompts or system messages include the project path context.
+**Note:** Tool creation methods still require the `path` parameter in requests. When using with agents, ensure the agent's prompts or system messages include the project path context.
 
 ## Complete Example
 
@@ -231,20 +231,20 @@ else:
 - `get_all_contracts(project_path: str) -> list[ContractModel]` - Get all contracts for a project
 - `get_project_facts(project_path: str) -> ProjectFacts` - Get complete project facts for a project
 
-### Tool Wrappers
+### Tool Creation Methods
 
-Available wrapper functions in `slither_mcp.client`:
+Tool creation methods available on `SlitherMCPClient`:
 
-**Query Tool Wrappers:**
-- `create_list_contracts_tool(mcp_client: SlitherMCPClient)`
-- `create_get_contract_tool(mcp_client: SlitherMCPClient)`
-- `create_list_functions_tool(mcp_client: SlitherMCPClient)`
+**Query Tool Creators:**
+- `create_list_contracts_tool()` - Creates a tool for listing contracts
+- `create_get_contract_tool()` - Creates a tool for getting contract details
+- `create_list_functions_tool()` - Creates a tool for listing functions
 
-**Analysis Tool Wrappers:**
-- `create_function_callees_tool(mcp_client: SlitherMCPClient)`
-- `create_get_inherited_contracts_tool(mcp_client: SlitherMCPClient)`
-- `create_get_derived_contracts_tool(mcp_client: SlitherMCPClient)`
-- `create_function_implementations_tool(mcp_client: SlitherMCPClient)`
+**Analysis Tool Creators:**
+- `create_function_callees_tool()` - Creates a tool for finding function callees
+- `create_get_inherited_contracts_tool()` - Creates a tool for getting inherited contracts
+- `create_get_derived_contracts_tool()` - Creates a tool for getting derived contracts
+- `create_function_implementations_tool()` - Creates a tool for finding function implementations
 
-All wrappers return async functions that can be used with pydantic-ai agents. For creating additional custom wrappers, see [ADDING_TOOLS.md](ADDING_TOOLS.md#step-5-create-client-tool-wrapper-optional).
+All methods return async functions that can be used with pydantic-ai agents. For creating additional tool creators, see [ADDING_TOOLS.md](ADDING_TOOLS.md#step-5-add-tool-creation-method-to-client-optional).
 

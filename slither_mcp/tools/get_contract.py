@@ -1,6 +1,7 @@
 """Tool for getting detailed contract information."""
 
-from pydantic import BaseModel
+from typing import Annotated
+from pydantic import BaseModel, Field
 
 from slither_mcp.types import (
     ContractKey,
@@ -12,7 +13,7 @@ from slither_mcp.types import (
 
 class GetContractRequest(JSONStringTolerantModel):
     """Request to get detailed contract information."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     contract_key: ContractKey
     include_functions: bool = True
 

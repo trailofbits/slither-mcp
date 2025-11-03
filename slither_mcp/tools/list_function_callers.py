@@ -29,7 +29,7 @@ class FunctionCallers(BaseModel):
 
 class FunctionCallersRequest(JSONStringTolerantModel):
     """Request to list callers for a function."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     function_key: Annotated[
         FunctionKey,
         Field(

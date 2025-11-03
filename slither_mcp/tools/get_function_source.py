@@ -1,7 +1,8 @@
 """Tool for getting the source code of a specific function."""
 
 import os
-from pydantic import BaseModel
+from typing import Annotated
+from pydantic import BaseModel, Field
 
 from slither_mcp.types import (
     FunctionKey,
@@ -12,7 +13,7 @@ from slither_mcp.types import (
 
 class GetFunctionSourceRequest(JSONStringTolerantModel):
     """Request to get the source code of a specific function."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     function_key: FunctionKey
 
 

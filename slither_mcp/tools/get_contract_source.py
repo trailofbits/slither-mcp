@@ -1,7 +1,8 @@
 """Tool for getting the full source code of a contract's file."""
 
 import os
-from pydantic import BaseModel
+from typing import Annotated
+from pydantic import BaseModel, Field
 
 from slither_mcp.types import (
     ContractKey,
@@ -12,7 +13,7 @@ from slither_mcp.types import (
 
 class GetContractSourceRequest(JSONStringTolerantModel):
     """Request to get the full source code of a contract's file."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     contract_key: ContractKey
 
 

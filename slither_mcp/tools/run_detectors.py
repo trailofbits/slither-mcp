@@ -1,7 +1,7 @@
 """Tool for running Slither detectors and retrieving cached results."""
 
-from typing import Optional
-from pydantic import BaseModel
+from typing import Annotated, Optional
+from pydantic import BaseModel, Field
 
 from slither_mcp.types import (
     DetectorResult,
@@ -12,7 +12,7 @@ from slither_mcp.types import (
 
 class RunDetectorsRequest(JSONStringTolerantModel):
     """Request to run detectors and retrieve results."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     detector_names: Optional[list[str]] = None
     impact: Optional[list[str]] = None
     confidence: Optional[list[str]] = None

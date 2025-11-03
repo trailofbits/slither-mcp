@@ -121,7 +121,7 @@ class ContractKey(BaseModel):
     path: Annotated[
         str,
         Field(
-            description="The short path of the contract's implementation file, relative to the base directory"
+            description="The short path of the contract's implementation file, relative to the project's base directory"
         ),
     ]
 
@@ -154,7 +154,7 @@ class FunctionKey(BaseModel):
     path: Annotated[
         str,
         Field(
-            description="The short path of the contract's implementation file, relative to the base directory"
+            description="The short path of the contract's implementation file, relative to the project's obase directory"
         ),
     ]
 

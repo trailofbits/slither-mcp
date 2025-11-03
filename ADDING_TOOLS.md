@@ -78,15 +78,15 @@ Create `tests/test_your_tool.py` with:
 
 See existing test files in `tests/` for patterns and fixtures.
 
-### Step 5: Create Client Tool Wrapper (Optional)
+### Step 5: Add Tool Creation Method to Client (Optional)
 
-For pydantic-ai integration, create a wrapper function in `slither_mcp/client/tool_wrappers.py`:
+For pydantic-ai integration, add a `create_your_tool_name_tool()` method to `SlitherMCPClient` in `slither_mcp/client/mcp_client.py`:
 
-1. Define `create_your_tool_wrapper(mcp_client)` that returns an async function
-2. The inner function should call `await mcp_client.your_tool_name(request)`
-3. Export from `slither_mcp/client/__init__.py`
+1. The method should return an async function that wraps `await self.your_tool_name(request)`
+2. Set `__name__` and `__doc__` on the returned function for introspection
+3. Follow the pattern of existing `create_*_tool()` methods in the class
 
-See existing wrappers in `tool_wrappers.py` for examples.
+See existing tool creation methods in `mcp_client.py` for examples.
 
 ### Step 6: Update Main README
 
@@ -141,7 +141,7 @@ Before submitting your new tool, ensure:
 - [ ] Edge case tests written
 - [ ] Integration tests written (see `tests/test_detector_integration.py`)
 - [ ] All tests passing (`uv run pytest`)
-- [ ] Client tool wrapper created (optional, in `slither_mcp/client/tool_wrappers.py`)
+- [ ] Client tool creation method added (optional, `create_*_tool()` in `slither_mcp/client/mcp_client.py`)
 - [ ] Main README.md updated with tool documentation
 - [ ] Docstrings complete and accurate
 

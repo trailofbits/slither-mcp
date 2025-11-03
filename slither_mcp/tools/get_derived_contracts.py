@@ -28,7 +28,7 @@ DerivedNode.model_rebuild()
 
 class GetDerivedContractsRequest(JSONStringTolerantModel):
     """Request to get derived contracts (contracts that inherit from this one)."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     contract_key: Annotated[
         ContractKey,
         Field(description="The contract key to get derived contracts for")

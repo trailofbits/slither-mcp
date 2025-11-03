@@ -116,8 +116,7 @@ slither_mcp/
 │   └── run_detectors.py     # Security: Get detector results
 └── client/                  # Client library for programmatic use
     ├── __init__.py          # Client exports
-    ├── mcp_client.py        # Typed MCP client wrapper
-    └── tool_wrappers.py     # Pydantic-ai agent tool wrappers
+    └── mcp_client.py        # Typed MCP client wrapper
 
 tests/
 ├── conftest.py              # Pytest fixtures (project_facts, etc.)
@@ -309,7 +308,7 @@ async with SlitherMCPClient() as client:
     facts = await client.get_project_facts()
 ```
 
-**Tool Wrappers**: The `client/tool_wrappers.py` module provides wrappers for integrating Slither MCP tools with pydantic-ai agents. These wrappers expose the same type-safe interfaces as the direct client methods.
+**Tool Creation**: The `SlitherMCPClient` provides `create_*_tool()` methods for integrating Slither MCP tools with pydantic-ai agents. These methods create tool functions that expose type-safe interfaces for agent use.
 
 See `CLIENT_USAGE.md` for complete examples and API reference.
 

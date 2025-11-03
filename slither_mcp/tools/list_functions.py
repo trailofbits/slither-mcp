@@ -1,7 +1,7 @@
 """Tool for listing functions with optional filters."""
 
-from typing import Optional
-from pydantic import BaseModel
+from typing import Annotated, Optional
+from pydantic import BaseModel, Field
 
 from slither_mcp.types import (
     ContractKey,
@@ -22,7 +22,7 @@ class FunctionInfo(BaseModel):
 
 class ListFunctionsRequest(JSONStringTolerantModel):
     """Request to list functions with optional filters."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     contract_key: ContractKey
     visibility: Optional[list[str]] = None
     has_modifiers: Optional[list[str]] = None

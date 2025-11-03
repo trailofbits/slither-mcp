@@ -1,7 +1,7 @@
 """Tool for listing contracts with optional filters."""
 
-from typing import Literal, Optional
-from pydantic import BaseModel
+from typing import Annotated, Literal, Optional
+from pydantic import BaseModel, Field
 
 from slither_mcp.types import (
     ContractKey,
@@ -21,7 +21,7 @@ class ContractInfo(BaseModel):
 
 class ListContractsRequest(JSONStringTolerantModel):
     """Request to list contracts with optional filters."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     filter_type: Optional[Literal["all", "concrete", "interface", "library", "abstract"]] = "all"
 
 

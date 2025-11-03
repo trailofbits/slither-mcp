@@ -1,13 +1,9 @@
-"""Tests for tool wrappers."""
+"""Tests for tool creation methods on SlitherMCPClient."""
 
 from unittest.mock import AsyncMock
 import pytest
 
 from slither_mcp.client.mcp_client import SlitherMCPClient
-from slither_mcp.client.tool_wrappers import (
-    create_function_callees_tool,
-    create_function_implementations_tool,
-)
 from slither_mcp.tools import (
     FunctionCalleesRequest,
     FunctionCalleesResponse,

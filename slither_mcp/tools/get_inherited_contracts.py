@@ -28,7 +28,7 @@ InheritanceNode.model_rebuild()
 
 class GetInheritedContractsRequest(JSONStringTolerantModel):
     """Request to get inherited contracts for a contract."""
-    path: str
+    path: Annotated[str, Field(description="Path to the Solidity project directory")]
     contract_key: Annotated[
         ContractKey,
         Field(description="The contract key to get inherited contracts for")
