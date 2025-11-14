@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/trailofbits-slither-mcp-badge.png)](https://mseep.ai/app/trailofbits-slither-mcp)
+
 # Slither MCP Server
 
 [![Tests](https://github.com/trailofbits/slither-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/trailofbits/slither-mcp/actions/workflows/test.yml)
