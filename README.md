@@ -26,6 +26,8 @@ You can also use Slither MCP as an easy-to-use Slither API for other use cases.
   - Security vulnerabilities and code quality issues
   - Source code locations
 
+While this is a v1.0 release, we anticipate API changes as we receive more feedback.
+
 ## Installation
 
 This project uses [UV](https://github.com/astral-sh/uv) for package management:
@@ -60,6 +62,8 @@ claude mcp add --transport stdio --scope user slither -- uvx --from git+https://
 
 ### Use in Cursor
 
+Make sure uvx is on your Cursor path using `sudo ln -s ~/.local/bin/uvx /usr/local/bin/uvx`
+
 In your `~/.cursor/mcp.json`:
 
 ```json
@@ -67,9 +71,6 @@ In your `~/.cursor/mcp.json`:
   "mcpServers": {
     "slither-mcp": {
       "command": "uvx --from git+https://github.com/trailofbits/slither-mcp slither-mcp",
-      "env": {
-        "PYTHONUNBUFFERED": "1"
-      }
     }
   }
 }
