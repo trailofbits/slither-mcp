@@ -21,7 +21,7 @@ class GetFunctionSourceResponse(BaseModel):
     """Response containing the function's source code."""
     success: bool
     source_code: str | None = None
-    file_path: str | None = None
+    file_path: Annotated[str | None, Field(description="File path relative to project directory")] = None
     line_start: int | None = None
     line_end: int | None = None
     error_message: str | None = None
@@ -51,9 +51,17 @@ def get_function_source(
             success=False,
             error_message=error or "Function not found"
         )
+
+    project_path = request.path
+    if not os.path.exists(project_path):
+        return GetFunctionSourceResponse(
+            success=False,
+            error_message=f"Project does not exist on path : {project_path}"
+        )
     
     # Get the file path and line numbers from the function model
-    file_path = function_model.path
+    file_path_rel = function_model.path
+    file_path = os.path.join(project_path, file_path_rel)
     line_start = function_model.line_start
     line_end = function_model.line_end
     
@@ -88,7 +96,7 @@ def get_function_source(
         return GetFunctionSourceResponse(
             success=True,
             source_code=source_code,
-            file_path=file_path,
+            file_path=file_path_rel,
             line_start=line_start,
             line_end=line_end
         )

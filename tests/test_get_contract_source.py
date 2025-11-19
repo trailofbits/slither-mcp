@@ -171,8 +171,12 @@ class TestGetContractSourceEdgeCases:
         """Test when the contract exists but the source file doesn't."""
         request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
         
-        # Mock os.path.exists to return False
-        with patch("os.path.exists", return_value=False):
+        # Mock os.path.exists to return True for project dir, False for source file
+        def mock_exists(path):
+            # Return True for project directory, False for source file
+            return path == test_path
+        
+        with patch("os.path.exists", side_effect=mock_exists):
             response = get_contract_source(request, project_facts)
 
         assert response.success is False

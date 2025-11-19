@@ -21,7 +21,7 @@ class GetContractSourceResponse(BaseModel):
     """Response containing the contract's source file content."""
     success: bool
     source_code: str | None = None
-    file_path: str | None = None
+    file_path: Annotated[str | None, Field(description="File path relative to project directory")] = None
     error_message: str | None = None
 
 
@@ -47,9 +47,18 @@ def get_contract_source(
             success=False,
             error_message=f"Contract not found: {request.contract_key.contract_name}"
         )
+
+    project_path = request.path
+    if not os.path.exists(project_path):
+        return GetContractSourceResponse(
+            success=False,
+            error_message=f"Project does not exist on path : {project_path}"
+        )
     
-    # Get the file path from the contract model
-    file_path = contract_model.path
+    # Get the file path and line numbers from the contract model
+    file_path_rel = contract_model.path
+    file_path = os.path.join(project_path, file_path_rel)
+
     
     # Check if file exists
     if not os.path.exists(file_path):
@@ -66,7 +75,7 @@ def get_contract_source(
         return GetContractSourceResponse(
             success=True,
             source_code=source_code,
-            file_path=file_path
+            file_path=file_path_rel
         )
     except Exception as e:
         return GetContractSourceResponse(

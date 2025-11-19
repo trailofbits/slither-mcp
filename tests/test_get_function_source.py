@@ -324,7 +324,12 @@ class TestGetFunctionSourceEdgeCases:
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
         
-        with patch("os.path.exists", return_value=False):
+        # Mock os.path.exists to return True for project dir, False for source file
+        def mock_exists(path):
+            # Return True for project directory, False for source file
+            return path == test_path
+        
+        with patch("os.path.exists", side_effect=mock_exists):
             response = get_function_source(request, project_facts)
 
         assert response.success is False
