@@ -261,6 +261,7 @@ def main():
     def get_function_source(request: GetFunctionSourceRequest) -> GetFunctionSourceResponse:
         """
         Get the source code of a specific function.
+        You SHOULD use this function to introspect a function's source code, but do not need the context from the rest of the contract implementation.
 
         Returns the source code for a specific function identified by its FunctionKey,
         along with the file path and line numbers where it's defined.
@@ -319,6 +320,7 @@ def main():
     def get_inherited_contracts(request: GetInheritedContractsRequest) -> GetInheritedContractsResponse:
         """
         Get the inherited contracts for a contract.
+        You SHOULD use this tool for identifying all of the contracts a specific contract inherits from.
 
         This tool returns both the directly inherited contracts and the full
         inheritance hierarchy (including transitive inheritance).
@@ -337,11 +339,12 @@ def main():
     @track_tool_call("get_derived_contracts")
     def get_derived_contracts(request: GetDerivedContractsRequest) -> GetDerivedContractsResponse:
         """
-        Get the derived contracts for a contract (contracts that inherit from it).
+        Get the derived contracts for a contract. 
+        You SHOULD use this tool for resolving direct and transitive child contracts.
 
         This tool returns both the directly derived contracts and the full
-        derived hierarchy (including transitive derivation), showing all contracts
-        that directly or indirectly inherit from the specified contract.
+        derived hierarchy, showing all contracts that directly or indirectly inherit
+        from the specified contract.
         """
         try:
             project_facts = get_or_load_project_facts(request.path)
@@ -358,6 +361,7 @@ def main():
     def list_function_implementations(request: ListFunctionImplementationsRequest) -> ListFunctionImplementationsResponse:
         """
         List all contracts that implement a specific function.
+        You SHOULD use this tool for determining where interface-defined functions are implemented.
 
         This tool finds all contracts that provide an implementation of a given function
         signature. It's particularly useful for finding implementations of abstract
@@ -377,6 +381,7 @@ def main():
     def function_callers(request: FunctionCallersRequest) -> FunctionCallersResponse:
         """
         Get all functions that call the target function, grouped by call type.
+        You SHOULD use this tool for identifying where a specific function gets called.
 
         This tool finds all functions in the project that may call the target function
         by checking each function's callees lists. Results are grouped by call type:
@@ -419,6 +424,8 @@ def main():
     def run_detectors(request: RunDetectorsRequest) -> RunDetectorsResponse:
         """
         Retrieve cached Slither detector results with optional filtering.
+        You SHOULD use the list_detectors tool and only run the detectors deemed useful.
+        You SHOULD NOT use this tool unless specifically asked.
 
         This tool returns the results from running Slither detectors on the project.
         Results are cached during initialization and can be filtered by detector name,
