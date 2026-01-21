@@ -1,10 +1,9 @@
 """Tests for get_derived_contracts tool."""
 
-import pytest
 from slither_mcp.tools.get_derived_contracts import (
     GetDerivedContractsRequest,
-    get_derived_contracts,
     build_derived_tree,
+    get_derived_contracts,
 )
 from slither_mcp.types import ContractKey
 
@@ -12,7 +11,9 @@ from slither_mcp.types import ContractKey
 class TestGetDerivedContractsHappyPath:
     """Test happy path scenarios for get_derived_contracts."""
 
-    def test_simple_derivation(self, test_path, project_facts, child_contract_key, base_contract_key):
+    def test_simple_derivation(
+        self, test_path, project_facts, child_contract_key, base_contract_key
+    ):
         """Test getting derived contracts for simple single inheritance."""
         # Query BaseContract - should return ChildContract as its derivative
         request = GetDerivedContractsRequest(path=test_path, contract_key=base_contract_key)
@@ -60,9 +61,9 @@ class TestGetDerivedContractsHappyPath:
             if derived.contract_key == child_contract_key:
                 child_node = derived
                 break
-        
+
         assert child_node is not None, "ChildContract should be in derived list"
-        
+
         # Check that GrandchildContract is derived from ChildContract
         grandchild_keys = {gc.contract_key for gc in child_node.derived_by}
         assert grandchild_contract_key in grandchild_keys
@@ -110,7 +111,9 @@ class TestGetDerivedContractsHappyPath:
         # Libraries typically don't have derivatives
         assert len(root.derived_by) == 0
 
-    def test_standalone_contract_derivation(self, test_path, project_facts, standalone_contract_key):
+    def test_standalone_contract_derivation(
+        self, test_path, project_facts, standalone_contract_key
+    ):
         """Test getting derived contracts for a standalone contract with no inheritance."""
         request = GetDerivedContractsRequest(path=test_path, contract_key=standalone_contract_key)
         response = get_derived_contracts(request, project_facts)
@@ -130,10 +133,7 @@ class TestGetDerivedContractsErrorCases:
 
     def test_contract_not_found(self, test_path, project_facts):
         """Test getting derived contracts for a non-existent contract."""
-        nonexistent_key = ContractKey(
-            contract_name="NonExistent",
-            path="contracts/NonExistent.sol"
-        )
+        nonexistent_key = ContractKey(contract_name="NonExistent", path="contracts/NonExistent.sol")
         request = GetDerivedContractsRequest(path=test_path, contract_key=nonexistent_key)
         response = get_derived_contracts(request, project_facts)
 
@@ -146,10 +146,7 @@ class TestGetDerivedContractsErrorCases:
 
     def test_contract_not_found_empty_project(self, test_path, empty_project_facts):
         """Test getting derived contracts in an empty project."""
-        some_key = ContractKey(
-            contract_name="SomeContract",
-            path="contracts/Some.sol"
-        )
+        some_key = ContractKey(contract_name="SomeContract", path="contracts/Some.sol")
         request = GetDerivedContractsRequest(path=test_path, contract_key=some_key)
         response = get_derived_contracts(request, empty_project_facts)
 
@@ -219,10 +216,7 @@ class TestGetDerivedContractsEdgeCases:
         """Test contract that lists itself in inheritance (edge case)."""
         from slither_mcp.types import ContractModel, ProjectFacts
 
-        self_ref_key = ContractKey(
-            contract_name="SelfRef",
-            path="contracts/SelfRef.sol"
-        )
+        self_ref_key = ContractKey(contract_name="SelfRef", path="contracts/SelfRef.sol")
 
         # Contract that inherits from itself (should never happen in real code)
         self_ref_contract = ContractModel(
@@ -270,13 +264,15 @@ class TestGetDerivedContractsEdgeCases:
 class TestBuildDerivedTree:
     """Test the build_derived_tree function directly."""
 
-    def test_build_tree_basic(self, test_path, project_facts, child_contract_key, base_contract_key):
+    def test_build_tree_basic(
+        self, test_path, project_facts, child_contract_key, base_contract_key
+    ):
         """Test building derived tree for basic inheritance."""
         tree = build_derived_tree(base_contract_key, project_facts)
 
         assert tree.contract_key == base_contract_key
         assert len(tree.derived_by) >= 1
-        
+
         # Check that ChildContract is in the derived list
         derived_keys = {child.contract_key for child in tree.derived_by}
         assert child_contract_key in derived_keys
@@ -297,16 +293,15 @@ class TestBuildDerivedTree:
         derived_keys = [child.contract_key for child in tree.derived_by]
         if child_contract_key in derived_keys:
             # Find the child node
-            child_node = next(child for child in tree.derived_by if child.contract_key == child_contract_key)
+            child_node = next(
+                child for child in tree.derived_by if child.contract_key == child_contract_key
+            )
             # Should have no further derivations due to visited set
             assert len(child_node.derived_by) == 0
 
     def test_build_tree_nonexistent_contract(self, test_path, project_facts):
         """Test building tree for non-existent contract."""
-        nonexistent_key = ContractKey(
-            contract_name="DoesNotExist",
-            path="contracts/Nope.sol"
-        )
+        nonexistent_key = ContractKey(contract_name="DoesNotExist", path="contracts/Nope.sol")
         tree = build_derived_tree(nonexistent_key, project_facts)
 
         # Should return node with empty derived list
@@ -335,17 +330,15 @@ class TestBuildDerivedTree:
         # Verify tree structure exists
         assert tree.contract_key == base_contract_key
         assert len(tree.derived_by) >= 1
-        
+
         # Find ChildContract in derived list
         child_found = False
         for derived in tree.derived_by:
             if derived.contract_key == child_contract_key:
                 child_found = True
-                # Check if GrandchildContract is in its derived list
-                grandchild_keys = {gc.contract_key for gc in derived.derived_by}
-                # Just verify structure, don't assert on specific inheritance
+                # Just verify structure exists, don't assert on specific inheritance
                 # as test fixtures may vary
+                _ = {gc.contract_key for gc in derived.derived_by}  # noqa: F841
                 break
-        
-        assert child_found, "ChildContract should be derived from BaseContract"
 
+        assert child_found, "ChildContract should be derived from BaseContract"

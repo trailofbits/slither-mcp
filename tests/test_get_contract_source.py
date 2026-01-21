@@ -1,8 +1,8 @@
 """Tests for get_contract_source tool."""
 
 import os
-import pytest
 from unittest.mock import mock_open, patch
+
 from slither_mcp.tools.get_contract_source import (
     GetContractSourceRequest,
     get_contract_source,
@@ -29,7 +29,7 @@ abstract contract BaseContract {
 }
 """
         request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
@@ -53,7 +53,7 @@ contract ChildContract is BaseContract {
 }
 """
         request = GetContractSourceRequest(path=test_path, contract_key=child_contract_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
@@ -73,7 +73,7 @@ interface InterfaceA {
 }
 """
         request = GetContractSourceRequest(path=test_path, contract_key=interface_a_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
@@ -95,7 +95,7 @@ library LibraryB {
 }
 """
         request = GetContractSourceRequest(path=test_path, contract_key=library_b_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
@@ -121,7 +121,7 @@ contract AnotherContract {
 }
 """
         request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
@@ -129,6 +129,7 @@ contract AnotherContract {
         # Should return the entire file content
         assert response.success is True
         assert response.error_message is None
+        assert response.source_code is not None
         assert "abstract contract BaseContract" in response.source_code
         assert "contract AnotherContract" in response.source_code
         assert response.file_path == "contracts/Base.sol"
@@ -137,7 +138,7 @@ contract AnotherContract {
         """Test getting source code from an empty file."""
         mock_source = ""
         request = GetContractSourceRequest(path=test_path, contract_key=empty_contract_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
@@ -153,11 +154,9 @@ class TestGetContractSourceEdgeCases:
 
     def test_nonexistent_contract(self, test_path, project_facts):
         """Test getting source for a contract that doesn't exist."""
-        request = GetContractSourceRequest(path=test_path, 
-            contract_key=ContractKey(
-                contract_name="NonExistent",
-                path="contracts/NonExistent.sol"
-            )
+        request = GetContractSourceRequest(
+            path=test_path,
+            contract_key=ContractKey(contract_name="NonExistent", path="contracts/NonExistent.sol"),
         )
         response = get_contract_source(request, project_facts)
 
@@ -170,12 +169,12 @@ class TestGetContractSourceEdgeCases:
     def test_source_file_not_found(self, test_path, project_facts, base_contract_key):
         """Test when the contract exists but the source file doesn't."""
         request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
-        
+
         # Mock os.path.exists to return True for project dir, False for source file
         def mock_exists(path):
             # Return True for project directory, False for source file
             return path == test_path
-        
+
         with patch("os.path.exists", side_effect=mock_exists):
             response = get_contract_source(request, project_facts)
 
@@ -188,7 +187,7 @@ class TestGetContractSourceEdgeCases:
     def test_file_read_error(self, test_path, project_facts, base_contract_key):
         """Test when reading the file raises an exception."""
         request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
-        
+
         # Mock file open to raise an exception
         with patch("builtins.open", side_effect=PermissionError("Permission denied")):
             with patch("os.path.exists", return_value=True):
@@ -202,11 +201,9 @@ class TestGetContractSourceEdgeCases:
 
     def test_empty_project(self, test_path, empty_project_facts):
         """Test getting source from an empty project."""
-        request = GetContractSourceRequest(path=test_path, 
-            contract_key=ContractKey(
-                contract_name="SomeContract",
-                path="contracts/Some.sol"
-            )
+        request = GetContractSourceRequest(
+            path=test_path,
+            contract_key=ContractKey(contract_name="SomeContract", path="contracts/Some.sol"),
         )
         response = get_contract_source(request, empty_project_facts)
 
@@ -227,32 +224,53 @@ abstract contract BaseContract {
 }
 """
         request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
+        assert response.source_code is not None
         assert "你好" in response.source_code
         assert "мир" in response.source_code
         assert "🚀" in response.source_code
         assert "世界" in response.source_code
 
     def test_very_large_source_file(self, test_path, project_facts, base_contract_key):
-        """Test handling a very large source file."""
+        """Test handling a very large source file with max_lines=None."""
         # Create a large mock source (simulate a big contract)
         mock_source = "// Large contract\n" + ("contract Line {}\n" * 10000)
-        request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
-        
+        # Set max_lines=None to get the full file (default is 500)
+        request = GetContractSourceRequest(
+            path=test_path, contract_key=base_contract_key, max_lines=None
+        )
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
+        assert response.source_code is not None
         assert len(response.source_code) > 100000  # Should be large
         assert response.source_code == mock_source
+
+    def test_large_file_default_truncation(self, test_path, project_facts, base_contract_key):
+        """Test that large files are truncated by default (max_lines=500)."""
+        # Create a large mock source
+        mock_source = "// Large contract\n" + ("contract Line {}\n" * 10000)
+        # Use default max_lines (500)
+        request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
+
+        with patch("builtins.open", mock_open(read_data=mock_source)):
+            with patch("os.path.exists", return_value=True):
+                response = get_contract_source(request, project_facts)
+
+        assert response.success is True
+        assert response.truncated is True
+        assert response.total_lines == 10001
+        assert response.returned_lines == (1, 500)
 
     def test_source_with_special_characters(self, test_path, project_facts, base_contract_key):
         """Test source code with various special characters."""
@@ -265,7 +283,7 @@ contract BaseContract {
 }
 """
         request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
@@ -278,14 +296,17 @@ contract BaseContract {
 class TestGetContractSourceFilePathHandling:
     """Test file path handling scenarios."""
 
-    def test_absolute_path_in_contract(self, test_path, project_facts, base_contract_key):
-        """Test when contract model contains an absolute path."""
-        # Modify the contract's path to be absolute
+    def test_absolute_path_in_contract_is_rejected(
+        self, test_path, project_facts, base_contract_key
+    ):
+        """Test that absolute paths are rejected as potential path traversal."""
+        # Modify the contract's path to be absolute - this should fail
         contract = project_facts.contracts[base_contract_key]
         absolute_path = "/absolute/path/to/contracts/Base.sol"
-        
+
         # Create a new contract model with absolute path
         from slither_mcp.types import ContractModel
+
         modified_contract = ContractModel(
             name=contract.name,
             key=contract.key,
@@ -299,25 +320,58 @@ class TestGetContractSourceFilePathHandling:
             functions_declared=contract.functions_declared,
             functions_inherited=contract.functions_inherited,
         )
-        
+
         # Replace in project_facts
         project_facts.contracts[base_contract_key] = modified_contract
-        
-        mock_source = "// Absolute path test"
-        request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
-        
-        with patch("builtins.open", mock_open(read_data=mock_source)):
-            with patch("os.path.exists", return_value=True):
-                response = get_contract_source(request, project_facts)
 
-        assert response.success is True
-        assert response.file_path == absolute_path
+        request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
+
+        with patch("os.path.exists", return_value=True):
+            response = get_contract_source(request, project_facts)
+
+        # Absolute paths should be rejected as path traversal
+        assert response.success is False
+        assert response.error_message is not None
+        assert "Path traversal detected" in response.error_message
+
+    def test_path_traversal_is_rejected(self, test_path, project_facts, base_contract_key):
+        """Test that path traversal attempts (../) are rejected."""
+        contract = project_facts.contracts[base_contract_key]
+        traversal_path = "../../../etc/passwd"
+
+        from slither_mcp.types import ContractModel
+
+        modified_contract = ContractModel(
+            name=contract.name,
+            key=contract.key,
+            path=traversal_path,
+            is_abstract=contract.is_abstract,
+            is_fully_implemented=contract.is_fully_implemented,
+            is_interface=contract.is_interface,
+            is_library=contract.is_library,
+            directly_inherits=contract.directly_inherits,
+            scopes=contract.scopes,
+            functions_declared=contract.functions_declared,
+            functions_inherited=contract.functions_inherited,
+        )
+
+        project_facts.contracts[base_contract_key] = modified_contract
+
+        request = GetContractSourceRequest(path=test_path, contract_key=base_contract_key)
+
+        with patch("os.path.exists", return_value=True):
+            response = get_contract_source(request, project_facts)
+
+        # Path traversal should be rejected
+        assert response.success is False
+        assert response.error_message is not None
+        assert "Path traversal detected" in response.error_message
 
     def test_relative_path_in_contract(self, test_path, project_facts, child_contract_key):
         """Test when contract model contains a relative path."""
         request = GetContractSourceRequest(path=test_path, contract_key=child_contract_key)
         mock_source = "// Relative path test"
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_contract_source(request, project_facts)
@@ -326,4 +380,3 @@ class TestGetContractSourceFilePathHandling:
         assert response.file_path == "contracts/Child.sol"
         # Path should be relative as stored in the contract
         assert not os.path.isabs(response.file_path)
-

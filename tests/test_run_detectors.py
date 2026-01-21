@@ -1,6 +1,5 @@
 """Tests for run_detectors tool."""
 
-import pytest
 from slither_mcp.tools.run_detectors import (
     RunDetectorsRequest,
     run_detectors,
@@ -34,8 +33,8 @@ class TestRunDetectorsHappyPath:
 
     def test_run_multiple_detectors_by_name(self, test_path, project_facts_with_detectors):
         """Test running multiple specific detectors."""
-        request = RunDetectorsRequest(path=test_path, 
-            detector_names=["reentrancy-eth", "uninitialized-storage"]
+        request = RunDetectorsRequest(
+            path=test_path, detector_names=["reentrancy-eth", "uninitialized-storage"]
         )
         response = run_detectors(request, project_facts_with_detectors)
 
@@ -43,7 +42,7 @@ class TestRunDetectorsHappyPath:
         assert response.error_message is None
         assert response.total_count == 2
         assert len(response.results) == 2
-        
+
         detector_names = {r.detector_name for r in response.results}
         assert detector_names == {"reentrancy-eth", "uninitialized-storage"}
 
@@ -56,7 +55,7 @@ class TestRunDetectorsHappyPath:
         assert response.error_message is None
         # reentrancy-eth + uninitialized-storage = 2
         assert response.total_count == 2
-        
+
         for result in response.results:
             assert result.impact == "High"
 
@@ -69,7 +68,7 @@ class TestRunDetectorsHappyPath:
         assert response.error_message is None
         # 2 naming-convention results
         assert response.total_count == 2
-        
+
         for result in response.results:
             assert result.impact == "Informational"
 
@@ -91,7 +90,7 @@ class TestRunDetectorsHappyPath:
         assert response.error_message is None
         # uninitialized-storage + 2 naming-convention = 3
         assert response.total_count == 3
-        
+
         for result in response.results:
             assert result.confidence == "High"
 
@@ -108,10 +107,11 @@ class TestRunDetectorsHappyPath:
 
     def test_combined_filters(self, test_path, project_facts_with_detectors):
         """Test combining detector name, impact, and confidence filters."""
-        request = RunDetectorsRequest(path=test_path, 
+        request = RunDetectorsRequest(
+            path=test_path,
             detector_names=["naming-convention"],
             impact=["Informational"],
-            confidence=["High"]
+            confidence=["High"],
         )
         response = run_detectors(request, project_facts_with_detectors)
 
@@ -119,7 +119,7 @@ class TestRunDetectorsHappyPath:
         assert response.error_message is None
         # Both naming-convention results match all criteria
         assert response.total_count == 2
-        
+
         for result in response.results:
             assert result.detector_name == "naming-convention"
             assert result.impact == "Informational"
@@ -132,10 +132,10 @@ class TestRunDetectorsHappyPath:
 
         assert response.success is True
         assert len(response.results) == 1
-        
+
         result = response.results[0]
         assert len(result.source_locations) == 1
-        
+
         location = result.source_locations[0]
         assert location.file_path == "contracts/Contract.sol"
         assert location.start_line == 5
@@ -148,7 +148,7 @@ class TestRunDetectorsHappyPath:
 
         assert response.success is True
         assert len(response.results) == 1
-        
+
         result = response.results[0]
         assert "Contract.storageVar" in result.description
         assert "never initialized" in result.description
@@ -194,7 +194,9 @@ class TestRunDetectorsEdgeCases:
         assert response.success is True
         assert response.total_count == 2
 
-    def test_run_detectors_case_insensitive_confidence(self, test_path, project_facts_with_detectors):
+    def test_run_detectors_case_insensitive_confidence(
+        self, test_path, project_facts_with_detectors
+    ):
         """Test that confidence filter is case-insensitive."""
         request = RunDetectorsRequest(path=test_path, confidence=["medium"])
         response = run_detectors(request, project_facts_with_detectors)
@@ -204,10 +206,7 @@ class TestRunDetectorsEdgeCases:
 
     def test_filter_excludes_all_results(self, test_path, project_facts_with_detectors):
         """Test filters that exclude all results."""
-        request = RunDetectorsRequest(path=test_path, 
-            impact=["High"],
-            confidence=["Low"]
-        )
+        request = RunDetectorsRequest(path=test_path, impact=["High"], confidence=["Low"])
         response = run_detectors(request, project_facts_with_detectors)
 
         assert response.success is True
@@ -222,4 +221,3 @@ class TestRunDetectorsEdgeCases:
         assert response.success is True
         assert response.total_count == 2
         assert all(r.detector_name == "naming-convention" for r in response.results)
-

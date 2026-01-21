@@ -1,16 +1,17 @@
 """Tests for list_function_callees tool."""
 
 import pytest
+
 from slither_mcp.tools.list_function_callees import (
     FunctionCalleesRequest,
     list_function_callees,
 )
 from slither_mcp.types import (
     ContractKey,
+    ContractModel,
+    FunctionCallees,
     FunctionKey,
     FunctionModel,
-    FunctionCallees,
-    ContractModel,
     ProjectFacts,
 )
 
@@ -234,7 +235,9 @@ def project_facts_with_callees(
 class TestListFunctionCalleesHappyPath:
     """Test happy path scenarios for list_function_callees."""
 
-    def test_function_with_no_callees(self, test_path, project_facts_with_callees, base_contract_key):
+    def test_function_with_no_callees(
+        self, test_path, project_facts_with_callees, base_contract_key
+    ):
         """Test getting callees for a function with no callees."""
         function_key = FunctionKey(
             signature="initialize()",
@@ -252,7 +255,9 @@ class TestListFunctionCalleesHappyPath:
         assert len(response.callees.library_callees) == 0
         assert response.callees.has_low_level_calls is False
 
-    def test_function_with_internal_callees(self, test_path, project_facts_with_callees, child_contract_key):
+    def test_function_with_internal_callees(
+        self, test_path, project_facts_with_callees, child_contract_key
+    ):
         """Test getting callees for a function with internal calls."""
         function_key = FunctionKey(
             signature="childFunction(address)",
@@ -315,8 +320,7 @@ class TestListFunctionCalleesHappyPath:
         )
 
         standalone_key = ContractKey(
-            contract_name="StandaloneContract",
-            path="contracts/Standalone.sol"
+            contract_name="StandaloneContract", path="contracts/Standalone.sol"
         )
 
         modified_standalone = ContractModel(
@@ -386,8 +390,30 @@ class TestListFunctionCalleesHappyPath:
         assert len(response.callees.internal_callees) == 1
         assert "BaseContract.baseFunction()" in response.callees.internal_callees
 
-    def test_query_context_is_populated(self, test_path, project_facts_with_callees, child_contract_key):
-        """Test that query context is properly populated in response."""
+    def test_query_context_is_populated(
+        self, test_path, project_facts_with_callees, child_contract_key
+    ):
+        """Test that query context is properly populated when include_query_context=True."""
+        function_key = FunctionKey(
+            signature="childFunction(address)",
+            contract_name="ChildContract",
+            path="contracts/Child.sol",
+        )
+        request = FunctionCalleesRequest(
+            path=test_path, function_key=function_key, include_query_context=True
+        )
+        response = list_function_callees(request, project_facts_with_callees)
+
+        assert response.success is True
+        assert response.query_context is not None
+        assert response.query_context.searched_calling_context is not None
+        assert response.query_context.searched_function is not None
+        assert "ChildContract.childFunction(address)" in response.query_context.searched_function
+
+    def test_query_context_omitted_by_default(
+        self, test_path, project_facts_with_callees, child_contract_key
+    ):
+        """Test that query context is omitted by default (include_query_context=False)."""
         function_key = FunctionKey(
             signature="childFunction(address)",
             contract_name="ChildContract",
@@ -397,10 +423,8 @@ class TestListFunctionCalleesHappyPath:
         response = list_function_callees(request, project_facts_with_callees)
 
         assert response.success is True
-        assert response.query_context is not None
-        assert response.query_context.searched_calling_context is not None
-        assert response.query_context.searched_function is not None
-        assert "ChildContract.childFunction(address)" in response.query_context.searched_function
+        assert response.query_context is None
+        assert response.callees is not None
 
 
 class TestListFunctionCalleesErrorCases:
@@ -486,8 +510,7 @@ class TestListFunctionCalleesEdgeCases:
     def test_function_with_complex_signature(self, test_path, project_facts):
         """Test function with complex type signature."""
         complex_contract_key = ContractKey(
-            contract_name="ComplexContract",
-            path="contracts/Complex.sol"
+            contract_name="ComplexContract", path="contracts/Complex.sol"
         )
 
         complex_callees = FunctionCallees(
@@ -543,10 +566,7 @@ class TestListFunctionCalleesEdgeCases:
 
     def test_overloaded_function(self, test_path, project_facts):
         """Test function with overloaded signatures."""
-        overload_key = ContractKey(
-            contract_name="OverloadContract",
-            path="contracts/Overload.sol"
-        )
+        overload_key = ContractKey(contract_name="OverloadContract", path="contracts/Overload.sol")
 
         empty_callees = FunctionCallees(
             internal_callees=[],
@@ -624,8 +644,7 @@ class TestListFunctionCalleesEdgeCases:
     def test_constructor_function(self, test_path, project_facts):
         """Test getting callees for constructor."""
         constructor_key = ContractKey(
-            contract_name="ConstructorContract",
-            path="contracts/Constructor.sol"
+            contract_name="ConstructorContract", path="contracts/Constructor.sol"
         )
 
         constructor_callees = FunctionCallees(
@@ -698,4 +717,3 @@ class TestListFunctionCalleesEdgeCases:
         assert response.callees is not None
         assert len(response.callees.internal_callees) == 1
         assert "ConstructorContract._initialize()" in response.callees.internal_callees
-

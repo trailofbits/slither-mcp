@@ -1,6 +1,5 @@
 """Tests for list_functions tool."""
 
-import pytest
 from slither_mcp.tools.list_functions import (
     ListFunctionsRequest,
     list_functions,
@@ -26,18 +25,21 @@ class TestListFunctionsHappyPath:
         assert func.is_declared is True
         assert "public" in func.solidity_modifiers
 
-    def test_list_all_functions_with_inheritance(self, test_path, project_facts, child_contract_key):
+    def test_list_all_functions_with_inheritance(
+        self, test_path, project_facts, child_contract_key
+    ):
         """Test listing all functions including inherited ones."""
         request = ListFunctionsRequest(path=test_path, contract_key=child_contract_key)
         response = list_functions(request, project_facts)
 
         assert response.success is True
         assert response.error_message is None
-        assert response.total_count == 3
+        assert response.total_count == 4  # 2 declared + 2 inherited
 
         # Check we have both declared and inherited functions
         signatures = {f.function_key.signature for f in response.functions}
         assert "childFunction(address)" in signatures
+        assert "sendFunds(address,uint256)" in signatures  # New function added
         assert "initialize()" in signatures
         assert "baseFunction()" in signatures
 
@@ -45,11 +47,15 @@ class TestListFunctionsHappyPath:
         declared_funcs = [f for f in response.functions if f.is_declared]
         inherited_funcs = [f for f in response.functions if not f.is_declared]
 
-        assert len(declared_funcs) == 1
+        assert len(declared_funcs) == 2  # childFunction + sendFunds
         assert len(inherited_funcs) == 2
-        assert declared_funcs[0].function_key.signature == "childFunction(address)"
+        declared_signatures = {f.function_key.signature for f in declared_funcs}
+        assert "childFunction(address)" in declared_signatures
+        assert "sendFunds(address,uint256)" in declared_signatures
 
-    def test_list_functions_deep_inheritance(self, test_path, project_facts, grandchild_contract_key):
+    def test_list_functions_deep_inheritance(
+        self, test_path, project_facts, grandchild_contract_key
+    ):
         """Test listing functions with deep inheritance hierarchy."""
         request = ListFunctionsRequest(path=test_path, contract_key=grandchild_contract_key)
         response = list_functions(request, project_facts)
@@ -71,9 +77,8 @@ class TestListFunctionsHappyPath:
 
     def test_filter_by_visibility_public(self, test_path, project_facts, child_contract_key):
         """Test filtering functions by public visibility."""
-        request = ListFunctionsRequest(path=test_path, 
-            contract_key=child_contract_key,
-            visibility=["public"]
+        request = ListFunctionsRequest(
+            path=test_path, contract_key=child_contract_key, visibility=["public"]
         )
         response = list_functions(request, project_facts)
 
@@ -88,9 +93,8 @@ class TestListFunctionsHappyPath:
 
     def test_filter_by_visibility_internal(self, test_path, project_facts, child_contract_key):
         """Test filtering functions by internal visibility."""
-        request = ListFunctionsRequest(path=test_path, 
-            contract_key=child_contract_key,
-            visibility=["internal"]
+        request = ListFunctionsRequest(
+            path=test_path, contract_key=child_contract_key, visibility=["internal"]
         )
         response = list_functions(request, project_facts)
 
@@ -103,9 +107,8 @@ class TestListFunctionsHappyPath:
 
     def test_filter_by_visibility_external(self, test_path, project_facts, grandchild_contract_key):
         """Test filtering functions by external visibility."""
-        request = ListFunctionsRequest(path=test_path, 
-            contract_key=grandchild_contract_key,
-            visibility=["external"]
+        request = ListFunctionsRequest(
+            path=test_path, contract_key=grandchild_contract_key, visibility=["external"]
         )
         response = list_functions(request, project_facts)
 
@@ -118,9 +121,8 @@ class TestListFunctionsHappyPath:
 
     def test_filter_by_multiple_visibilities(self, test_path, project_facts, child_contract_key):
         """Test filtering by multiple visibility types."""
-        request = ListFunctionsRequest(path=test_path, 
-            contract_key=child_contract_key,
-            visibility=["public", "internal"]
+        request = ListFunctionsRequest(
+            path=test_path, contract_key=child_contract_key, visibility=["public", "internal"]
         )
         response = list_functions(request, project_facts)
 
@@ -129,9 +131,8 @@ class TestListFunctionsHappyPath:
 
     def test_filter_by_modifier(self, test_path, project_facts, child_contract_key):
         """Test filtering functions by modifier."""
-        request = ListFunctionsRequest(path=test_path, 
-            contract_key=child_contract_key,
-            has_modifiers=["payable"]
+        request = ListFunctionsRequest(
+            path=test_path, contract_key=child_contract_key, has_modifiers=["payable"]
         )
         response = list_functions(request, project_facts)
 
@@ -144,9 +145,8 @@ class TestListFunctionsHappyPath:
 
     def test_filter_by_view_modifier(self, test_path, project_facts, grandchild_contract_key):
         """Test filtering functions by view modifier."""
-        request = ListFunctionsRequest(path=test_path, 
-            contract_key=grandchild_contract_key,
-            has_modifiers=["view"]
+        request = ListFunctionsRequest(
+            path=test_path, contract_key=grandchild_contract_key, has_modifiers=["view"]
         )
         response = list_functions(request, project_facts)
 
@@ -157,11 +157,14 @@ class TestListFunctionsHappyPath:
         assert "grandchildFunction()" in signatures
         assert "baseFunction()" in signatures
 
-    def test_filter_by_multiple_modifiers(self, test_path, project_facts, multi_inherit_contract_key):
+    def test_filter_by_multiple_modifiers(
+        self, test_path, project_facts, multi_inherit_contract_key
+    ):
         """Test filtering by multiple modifiers."""
-        request = ListFunctionsRequest(path=test_path, 
+        request = ListFunctionsRequest(
+            path=test_path,
             contract_key=multi_inherit_contract_key,
-            has_modifiers=["external", "override"]
+            has_modifiers=["external", "override"],
         )
         response = list_functions(request, project_facts)
 
@@ -171,17 +174,17 @@ class TestListFunctionsHappyPath:
 
         # interfaceMethod has both external and override
         found_interface = any(
-            f.function_key.signature == "interfaceMethod()" 
-            for f in response.functions
+            f.function_key.signature == "interfaceMethod()" for f in response.functions
         )
         assert found_interface is True
 
     def test_filter_visibility_and_modifiers(self, test_path, project_facts, child_contract_key):
         """Test filtering by both visibility and modifiers."""
-        request = ListFunctionsRequest(path=test_path, 
+        request = ListFunctionsRequest(
+            path=test_path,
             contract_key=child_contract_key,
             visibility=["public"],
-            has_modifiers=["payable"]
+            has_modifiers=["payable"],
         )
         response = list_functions(request, project_facts)
 
@@ -212,10 +215,7 @@ class TestListFunctionsErrorCases:
 
     def test_contract_not_found(self, test_path, project_facts):
         """Test listing functions for a non-existent contract."""
-        nonexistent_key = ContractKey(
-            contract_name="NonExistent",
-            path="contracts/NonExistent.sol"
-        )
+        nonexistent_key = ContractKey(contract_name="NonExistent", path="contracts/NonExistent.sol")
         request = ListFunctionsRequest(path=test_path, contract_key=nonexistent_key)
         response = list_functions(request, project_facts)
 
@@ -228,10 +228,7 @@ class TestListFunctionsErrorCases:
 
     def test_contract_not_found_empty_project(self, test_path, empty_project_facts):
         """Test listing functions for a contract in an empty project."""
-        some_key = ContractKey(
-            contract_name="SomeContract",
-            path="contracts/Some.sol"
-        )
+        some_key = ContractKey(contract_name="SomeContract", path="contracts/Some.sol")
         request = ListFunctionsRequest(path=test_path, contract_key=some_key)
         response = list_functions(request, empty_project_facts)
 
@@ -253,12 +250,13 @@ class TestListFunctionsEdgeCases:
         assert response.total_count == 0
         assert len(response.functions) == 0
 
-    def test_filter_no_matches_visibility(self, test_path, project_facts, multi_inherit_contract_key):
+    def test_filter_no_matches_visibility(
+        self, test_path, project_facts, multi_inherit_contract_key
+    ):
         """Test filtering that matches no functions."""
         # multiFunction is private, but we filter for internal
-        request = ListFunctionsRequest(path=test_path, 
-            contract_key=multi_inherit_contract_key,
-            visibility=["internal"]
+        request = ListFunctionsRequest(
+            path=test_path, contract_key=multi_inherit_contract_key, visibility=["internal"]
         )
         response = list_functions(request, project_facts)
 
@@ -269,9 +267,10 @@ class TestListFunctionsEdgeCases:
 
     def test_filter_no_matches_modifiers(self, test_path, project_facts, standalone_contract_key):
         """Test filtering by modifier that doesn't exist."""
-        request = ListFunctionsRequest(path=test_path, 
+        request = ListFunctionsRequest(
+            path=test_path,
             contract_key=standalone_contract_key,
-            has_modifiers=["view", "pure"]  # standaloneFunction has neither
+            has_modifiers=["view", "pure"],  # standaloneFunction has neither
         )
         response = list_functions(request, project_facts)
 
@@ -303,11 +302,12 @@ class TestListFunctionsEdgeCases:
         assert func.function_key.signature == "add(uint256,uint256)"
         assert "pure" in func.solidity_modifiers
 
-    def test_private_function_visibility(self, test_path, project_facts, multi_inherit_contract_key):
+    def test_private_function_visibility(
+        self, test_path, project_facts, multi_inherit_contract_key
+    ):
         """Test that private functions are included in listings."""
-        request = ListFunctionsRequest(path=test_path, 
-            contract_key=multi_inherit_contract_key,
-            visibility=["private"]
+        request = ListFunctionsRequest(
+            path=test_path, contract_key=multi_inherit_contract_key, visibility=["private"]
         )
         response = list_functions(request, project_facts)
 
@@ -333,4 +333,3 @@ class TestListFunctionsEdgeCases:
 
         assert len(declared) == 2
         assert len(inherited) == 2
-

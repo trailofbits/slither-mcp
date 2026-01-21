@@ -9,10 +9,10 @@ from slither_mcp.types import FunctionCallees
 def get_callees(function_contract) -> FunctionCallees:
     """
     Extract function callees from a Slither FunctionContract.
-    
+
     Args:
         function_contract: Slither FunctionContract object
-        
+
     Returns:
         FunctionCallees with internal, external, and library callees
     """
@@ -36,6 +36,5 @@ def get_callees(function_contract) -> FunctionCallees:
         internal_callees=list(set(internal)),
         library_callees=list(set(library)),
         external_callees=list(set(external)),
-        has_low_level_calls=True if len(function_contract.low_level_calls) else False,
+        has_low_level_calls=bool(function_contract.low_level_calls),
     )
-

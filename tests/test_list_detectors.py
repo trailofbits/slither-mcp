@@ -1,6 +1,5 @@
 """Tests for list_detectors tool."""
 
-import pytest
 from slither_mcp.tools.list_detectors import (
     ListDetectorsRequest,
     list_detectors,
@@ -58,7 +57,7 @@ class TestListDetectorsHappyPath:
 
         assert response.success is True
         assert len(response.detectors) == 1
-        
+
         detector = response.detectors[0]
         assert detector.name == "reentrancy-eth"
         assert detector.description == "Reentrancy vulnerabilities (theft of ethers)"
@@ -106,4 +105,3 @@ class TestListDetectorsEdgeCases:
         assert response.success is True
         assert response.total_count == 1
         assert response.detectors[0].name == "uninitialized-storage"
-

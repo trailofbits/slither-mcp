@@ -1,10 +1,9 @@
 """Tests for get_inherited_contracts tool."""
 
-import pytest
 from slither_mcp.tools.get_inherited_contracts import (
     GetInheritedContractsRequest,
-    get_inherited_contracts,
     build_inheritance_tree,
+    get_inherited_contracts,
 )
 from slither_mcp.types import ContractKey
 
@@ -12,7 +11,9 @@ from slither_mcp.types import ContractKey
 class TestGetInheritedContractsHappyPath:
     """Test happy path scenarios for get_inherited_contracts."""
 
-    def test_simple_inheritance(self, test_path, project_facts, child_contract_key, base_contract_key):
+    def test_simple_inheritance(
+        self, test_path, project_facts, child_contract_key, base_contract_key
+    ):
         """Test getting inherited contracts for simple single inheritance."""
         request = GetInheritedContractsRequest(path=test_path, contract_key=child_contract_key)
         response = get_inherited_contracts(request, project_facts)
@@ -72,7 +73,9 @@ class TestGetInheritedContractsHappyPath:
         interface_a_key,
     ):
         """Test getting inherited contracts for multiple inheritance."""
-        request = GetInheritedContractsRequest(path=test_path, contract_key=multi_inherit_contract_key)
+        request = GetInheritedContractsRequest(
+            path=test_path, contract_key=multi_inherit_contract_key
+        )
         response = get_inherited_contracts(request, project_facts)
 
         assert response.success is True
@@ -152,10 +155,7 @@ class TestGetInheritedContractsErrorCases:
 
     def test_contract_not_found(self, test_path, project_facts):
         """Test getting inherited contracts for a non-existent contract."""
-        nonexistent_key = ContractKey(
-            contract_name="NonExistent",
-            path="contracts/NonExistent.sol"
-        )
+        nonexistent_key = ContractKey(contract_name="NonExistent", path="contracts/NonExistent.sol")
         request = GetInheritedContractsRequest(path=test_path, contract_key=nonexistent_key)
         response = get_inherited_contracts(request, project_facts)
 
@@ -168,10 +168,7 @@ class TestGetInheritedContractsErrorCases:
 
     def test_contract_not_found_empty_project(self, test_path, empty_project_facts):
         """Test getting inherited contracts in an empty project."""
-        some_key = ContractKey(
-            contract_name="SomeContract",
-            path="contracts/Some.sol"
-        )
+        some_key = ContractKey(contract_name="SomeContract", path="contracts/Some.sol")
         request = GetInheritedContractsRequest(path=test_path, contract_key=some_key)
         response = get_inherited_contracts(request, empty_project_facts)
 
@@ -185,7 +182,7 @@ class TestGetInheritedContractsEdgeCases:
 
     def test_circular_dependency_prevention(self, test_path, project_facts):
         """Test that circular dependencies are handled gracefully."""
-        from slither_mcp.types import ContractModel, FunctionCallees, ProjectFacts
+        from slither_mcp.types import ContractModel, ProjectFacts
 
         # Create two contracts that inherit from each other (circular)
         contract_a_key = ContractKey(contract_name="ContractA", path="contracts/A.sol")
@@ -241,10 +238,7 @@ class TestGetInheritedContractsEdgeCases:
         """Test contract that lists itself in inheritance (edge case)."""
         from slither_mcp.types import ContractModel, ProjectFacts
 
-        self_ref_key = ContractKey(
-            contract_name="SelfRef",
-            path="contracts/SelfRef.sol"
-        )
+        self_ref_key = ContractKey(contract_name="SelfRef", path="contracts/SelfRef.sol")
 
         # Contract that inherits from itself (should never happen in real code)
         self_ref_contract = ContractModel(
@@ -280,8 +274,7 @@ class TestGetInheritedContractsEdgeCases:
 
         orphan_key = ContractKey(contract_name="Orphan", path="contracts/Orphan.sol")
         missing_parent_key = ContractKey(
-            contract_name="MissingParent",
-            path="contracts/Missing.sol"
+            contract_name="MissingParent", path="contracts/Missing.sol"
         )
 
         # Contract with reference to non-existent parent
@@ -331,7 +324,9 @@ class TestGetInheritedContractsEdgeCases:
 class TestBuildInheritanceTree:
     """Test the build_inheritance_tree function directly."""
 
-    def test_build_tree_basic(self, test_path, project_facts, child_contract_key, base_contract_key):
+    def test_build_tree_basic(
+        self, test_path, project_facts, child_contract_key, base_contract_key
+    ):
         """Test building inheritance tree for basic inheritance."""
         tree = build_inheritance_tree(child_contract_key, project_facts)
 
@@ -357,10 +352,7 @@ class TestBuildInheritanceTree:
 
     def test_build_tree_nonexistent_contract(self, test_path, project_facts):
         """Test building tree for non-existent contract."""
-        nonexistent_key = ContractKey(
-            contract_name="DoesNotExist",
-            path="contracts/Nope.sol"
-        )
+        nonexistent_key = ContractKey(contract_name="DoesNotExist", path="contracts/Nope.sol")
         tree = build_inheritance_tree(nonexistent_key, project_facts)
 
         # Should return node with empty inherits
@@ -384,4 +376,3 @@ class TestBuildInheritanceTree:
         assert tree.inherits[0].contract_key == child_contract_key
         assert len(tree.inherits[0].inherits) == 1
         assert tree.inherits[0].inherits[0].contract_key == base_contract_key
-

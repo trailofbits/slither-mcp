@@ -1,15 +1,19 @@
 """Shared pytest fixtures for slither-mcp tests."""
 
 import pytest
+
 from slither_mcp.types import (
     ContractKey,
     ContractModel,
     DetectorMetadata,
     DetectorResult,
-    FunctionModel,
+    EventModel,
+    EventParameter,
     FunctionCallees,
+    FunctionModel,
     ProjectFacts,
     SourceLocation,
+    StateVariableModel,
 )
 
 
@@ -114,6 +118,33 @@ def base_contract(base_contract_key, empty_callees):
             ),
         },
         functions_inherited={},
+        state_variables=[
+            StateVariableModel(
+                name="owner",
+                type_str="address",
+                visibility="internal",
+                is_constant=False,
+                is_immutable=False,
+                line_number=5,
+            ),
+            StateVariableModel(
+                name="VERSION",
+                type_str="uint256",
+                visibility="public",
+                is_constant=True,
+                is_immutable=False,
+                line_number=6,
+            ),
+        ],
+        events=[
+            EventModel(
+                name="Initialized",
+                parameters=[
+                    EventParameter(name="version", type_str="uint256", indexed=True),
+                ],
+                line_number=8,
+            ),
+        ],
     )
 
 
@@ -184,6 +215,13 @@ def library_b(library_b_key, empty_callees):
 @pytest.fixture
 def child_contract(child_contract_key, base_contract_key, base_contract, empty_callees):
     """Mock ChildContract - concrete contract inheriting from BaseContract."""
+    # FunctionCallees with low-level call for testing
+    callees_with_low_level = FunctionCallees(
+        internal_callees=[],
+        external_callees=[],
+        library_callees=[],
+        has_low_level_calls=True,
+    )
     return ContractModel(
         name="ChildContract",
         key=child_contract_key,
@@ -208,11 +246,53 @@ def child_contract(child_contract_key, base_contract_key, base_contract, empty_c
                 line_end=18,
                 callees=empty_callees,
             ),
+            "sendFunds(address,uint256)": FunctionModel(
+                signature="sendFunds(address,uint256)",
+                implementation_contract=child_contract_key,
+                solidity_modifiers=["external"],
+                visibility="external",
+                function_modifiers=["onlyOwner", "nonReentrant"],
+                arguments=["address", "uint256"],
+                returns=["bool"],
+                path="contracts/Child.sol",
+                line_start=20,
+                line_end=30,
+                callees=callees_with_low_level,
+            ),
         },
         functions_inherited={
             "initialize()": base_contract.functions_declared["initialize()"],
             "baseFunction()": base_contract.functions_declared["baseFunction()"],
         },
+        state_variables=[
+            StateVariableModel(
+                name="balance",
+                type_str="uint256",
+                visibility="public",
+                is_constant=False,
+                is_immutable=False,
+                line_number=8,
+            ),
+            StateVariableModel(
+                name="deployTime",
+                type_str="uint256",
+                visibility="private",
+                is_constant=False,
+                is_immutable=True,
+                line_number=9,
+            ),
+        ],
+        events=[
+            EventModel(
+                name="Transfer",
+                parameters=[
+                    EventParameter(name="from", type_str="address", indexed=True),
+                    EventParameter(name="to", type_str="address", indexed=True),
+                    EventParameter(name="amount", type_str="uint256", indexed=False),
+                ],
+                line_number=6,
+            ),
+        ],
     )
 
 
@@ -419,25 +499,25 @@ def detector_metadata_list():
             name="reentrancy-eth",
             description="Reentrancy vulnerabilities (theft of ethers)",
             impact="High",
-            confidence="Medium"
+            confidence="Medium",
         ),
         DetectorMetadata(
             name="uninitialized-storage",
             description="Uninitialized storage variables",
             impact="High",
-            confidence="High"
+            confidence="High",
         ),
         DetectorMetadata(
             name="naming-convention",
             description="Conformity to Solidity naming conventions",
             impact="Informational",
-            confidence="High"
+            confidence="High",
         ),
         DetectorMetadata(
             name="solc-version",
             description="Incorrect Solidity version",
             impact="Informational",
-            confidence="High"
+            confidence="High",
         ),
     ]
 
@@ -454,12 +534,8 @@ def detector_results_dict():
                 confidence="Medium",
                 description="Reentrancy in Contract.withdraw() (contracts/Contract.sol#5-10)",
                 source_locations=[
-                    SourceLocation(
-                        file_path="contracts/Contract.sol",
-                        start_line=5,
-                        end_line=10
-                    )
-                ]
+                    SourceLocation(file_path="contracts/Contract.sol", start_line=5, end_line=10)
+                ],
             )
         ],
         "uninitialized-storage": [
@@ -470,12 +546,8 @@ def detector_results_dict():
                 confidence="High",
                 description="Contract.storageVar (contracts/Contract.sol#3) is never initialized",
                 source_locations=[
-                    SourceLocation(
-                        file_path="contracts/Contract.sol",
-                        start_line=3,
-                        end_line=3
-                    )
-                ]
+                    SourceLocation(file_path="contracts/Contract.sol", start_line=3, end_line=3)
+                ],
             )
         ],
         "naming-convention": [
@@ -486,12 +558,8 @@ def detector_results_dict():
                 confidence="High",
                 description="Parameter 'MyContract._value' (contracts/Contract.sol#15) is not in mixedCase",
                 source_locations=[
-                    SourceLocation(
-                        file_path="contracts/Contract.sol",
-                        start_line=15,
-                        end_line=15
-                    )
-                ]
+                    SourceLocation(file_path="contracts/Contract.sol", start_line=15, end_line=15)
+                ],
             ),
             DetectorResult(
                 detector_name="naming-convention",
@@ -500,12 +568,8 @@ def detector_results_dict():
                 confidence="High",
                 description="Function 'MyContract.DoSomething' (contracts/Contract.sol#20-25) is not in mixedCase",
                 source_locations=[
-                    SourceLocation(
-                        file_path="contracts/Contract.sol",
-                        start_line=20,
-                        end_line=25
-                    )
-                ]
+                    SourceLocation(file_path="contracts/Contract.sol", start_line=20, end_line=25)
+                ],
             ),
         ],
     }
@@ -530,4 +594,3 @@ def project_facts_with_detectors(
         detector_results=detector_results_dict,
         available_detectors=detector_metadata_list,
     )
-
