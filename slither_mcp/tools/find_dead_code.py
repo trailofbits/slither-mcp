@@ -4,7 +4,11 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from slither_mcp.constants import SPECIAL_FUNCTION_NAMES, TEST_FUNCTION_PREFIX
+from slither_mcp.constants import (
+    SLITHER_INTERNAL_PREFIX,
+    SPECIAL_FUNCTION_NAMES,
+    TEST_FUNCTION_PREFIX,
+)
 from slither_mcp.pagination import PaginatedRequest, apply_pagination
 from slither_mcp.types import ContractKey, FunctionKey, ProjectFacts
 
@@ -38,6 +42,10 @@ class FindDeadCodeRequest(PaginatedRequest):
         bool,
         Field(description="If true, also check inherited functions"),
     ] = False
+    exclude_paths: Annotated[
+        list[str] | None,
+        Field(description="Path prefixes to exclude (e.g., ['lib/', 'node_modules/'])"),
+    ] = None
 
 
 class FindDeadCodeResponse(BaseModel):
@@ -101,6 +109,24 @@ def _is_special_function(func_signature: str) -> bool:
     return func_name in SPECIAL_FUNCTION_NAMES or func_name.startswith(TEST_FUNCTION_PREFIX)
 
 
+def _is_slither_internal_function(func_signature: str) -> bool:
+    """Check if a function is a Slither-generated internal function.
+
+    Slither generates internal functions like `slitherConstructorVariables()`
+    and `slitherConstructorConstantVariables()` during analysis. These should
+    be excluded from dead code analysis as they are artifacts of the analysis
+    process, not actual dead code.
+
+    Args:
+        func_signature: Full function signature (e.g., 'slitherConstructorVariables()')
+
+    Returns:
+        True if the function is a Slither-generated internal function.
+    """
+    func_name = func_signature.split("(")[0]
+    return func_name.startswith(SLITHER_INTERNAL_PREFIX)
+
+
 def find_dead_code(
     request: FindDeadCodeRequest, project_facts: ProjectFacts
 ) -> FindDeadCodeResponse:
@@ -157,6 +183,11 @@ def find_dead_code(
             if contract_model.is_interface or contract_model.is_library:
                 continue
 
+            # Skip contracts matching exclude_paths
+            if request.exclude_paths:
+                if any(contract_key.path.startswith(p) for p in request.exclude_paths):
+                    continue
+
             # Check declared functions
             for sig, func in contract_model.functions_declared.items():
                 # Build the external signature for matching
@@ -174,6 +205,10 @@ def find_dead_code(
 
                 # Skip special functions (constructor, receive, fallback, etc.)
                 if _is_special_function(sig):
+                    continue
+
+                # Skip Slither-generated internal functions
+                if _is_slither_internal_function(sig):
                     continue
 
                 # Determine reason for dead code classification
@@ -209,6 +244,9 @@ def find_dead_code(
                         continue
 
                     if _is_special_function(sig):
+                        continue
+
+                    if _is_slither_internal_function(sig):
                         continue
 
                     dead_functions.append(

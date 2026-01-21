@@ -424,3 +424,267 @@ def test_find_dead_code_is_entry_point_flag(dead_code_project_facts: ProjectFact
             assert func.is_entry_point is True
         else:
             assert func.is_entry_point is False
+
+
+@pytest.fixture
+def slither_internal_project():
+    """Project with Slither-generated internal functions."""
+    contract_key = ContractKey(contract_name="TestContract", path="contracts/Test.sol")
+
+    empty_callees = FunctionCallees(
+        internal_callees=[],
+        external_callees=[],
+        library_callees=[],
+        has_low_level_calls=False,
+    )
+
+    contract = ContractModel(
+        name="TestContract",
+        key=contract_key,
+        path="contracts/Test.sol",
+        is_abstract=False,
+        is_fully_implemented=True,
+        is_interface=False,
+        is_library=False,
+        directly_inherits=[],
+        scopes=[contract_key],
+        functions_declared={
+            "slitherConstructorVariables()": FunctionModel(
+                signature="slitherConstructorVariables()",
+                implementation_contract=contract_key,
+                solidity_modifiers=["internal"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="contracts/Test.sol",
+                line_start=5,
+                line_end=8,
+                callees=empty_callees,
+            ),
+            "slitherConstructorConstantVariables()": FunctionModel(
+                signature="slitherConstructorConstantVariables()",
+                implementation_contract=contract_key,
+                solidity_modifiers=["internal"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="contracts/Test.sol",
+                line_start=10,
+                line_end=13,
+                callees=empty_callees,
+            ),
+            "realDeadCode()": FunctionModel(
+                signature="realDeadCode()",
+                implementation_contract=contract_key,
+                solidity_modifiers=["internal"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="contracts/Test.sol",
+                line_start=15,
+                line_end=18,
+                callees=empty_callees,
+            ),
+        },
+        functions_inherited={},
+    )
+
+    return ProjectFacts(
+        contracts={contract_key: contract},
+        project_dir="/test/project",
+    )
+
+
+def test_find_dead_code_slither_internal_functions_excluded(
+    slither_internal_project: ProjectFacts, test_path: str
+):
+    """Test that Slither-generated internal functions are excluded from dead code."""
+    request = FindDeadCodeRequest(path=test_path, exclude_entry_points=True)
+    response = find_dead_code(request, slither_internal_project)
+
+    assert response.success
+    signatures = [f.function_key.signature for f in response.dead_functions]
+
+    # Slither internal functions should be excluded
+    assert "slitherConstructorVariables()" not in signatures
+    assert "slitherConstructorConstantVariables()" not in signatures
+
+    # Real dead code should still be flagged
+    assert "realDeadCode()" in signatures
+
+
+@pytest.fixture
+def exclude_paths_project():
+    """Project with contracts in different directories."""
+    contract_main_key = ContractKey(contract_name="MainContract", path="src/Main.sol")
+    contract_lib_key = ContractKey(contract_name="LibContract", path="lib/forge-std/Lib.sol")
+    contract_node_key = ContractKey(
+        contract_name="NodeContract", path="node_modules/dep/Node.sol"
+    )
+
+    empty_callees = FunctionCallees(
+        internal_callees=[],
+        external_callees=[],
+        library_callees=[],
+        has_low_level_calls=False,
+    )
+
+    contract_main = ContractModel(
+        name="MainContract",
+        key=contract_main_key,
+        path="src/Main.sol",
+        is_abstract=False,
+        is_fully_implemented=True,
+        is_interface=False,
+        is_library=False,
+        directly_inherits=[],
+        scopes=[contract_main_key],
+        functions_declared={
+            "mainFunction()": FunctionModel(
+                signature="mainFunction()",
+                implementation_contract=contract_main_key,
+                solidity_modifiers=["internal"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="src/Main.sol",
+                line_start=5,
+                line_end=8,
+                callees=empty_callees,
+            ),
+        },
+        functions_inherited={},
+    )
+
+    contract_lib = ContractModel(
+        name="LibContract",
+        key=contract_lib_key,
+        path="lib/forge-std/Lib.sol",
+        is_abstract=False,
+        is_fully_implemented=True,
+        is_interface=False,
+        is_library=False,
+        directly_inherits=[],
+        scopes=[contract_lib_key],
+        functions_declared={
+            "libFunction()": FunctionModel(
+                signature="libFunction()",
+                implementation_contract=contract_lib_key,
+                solidity_modifiers=["internal"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="lib/forge-std/Lib.sol",
+                line_start=5,
+                line_end=8,
+                callees=empty_callees,
+            ),
+        },
+        functions_inherited={},
+    )
+
+    contract_node = ContractModel(
+        name="NodeContract",
+        key=contract_node_key,
+        path="node_modules/dep/Node.sol",
+        is_abstract=False,
+        is_fully_implemented=True,
+        is_interface=False,
+        is_library=False,
+        directly_inherits=[],
+        scopes=[contract_node_key],
+        functions_declared={
+            "nodeFunction()": FunctionModel(
+                signature="nodeFunction()",
+                implementation_contract=contract_node_key,
+                solidity_modifiers=["internal"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="node_modules/dep/Node.sol",
+                line_start=5,
+                line_end=8,
+                callees=empty_callees,
+            ),
+        },
+        functions_inherited={},
+    )
+
+    return ProjectFacts(
+        contracts={
+            contract_main_key: contract_main,
+            contract_lib_key: contract_lib,
+            contract_node_key: contract_node,
+        },
+        project_dir="/test/project",
+    )
+
+
+def test_find_dead_code_exclude_paths(exclude_paths_project: ProjectFacts, test_path: str):
+    """Test that exclude_paths filters out contracts in specified directories."""
+    request = FindDeadCodeRequest(
+        path=test_path,
+        exclude_entry_points=True,
+        exclude_paths=["lib/", "node_modules/"],
+    )
+    response = find_dead_code(request, exclude_paths_project)
+
+    assert response.success
+    signatures = [f.function_key.signature for f in response.dead_functions]
+    paths = [f.function_key.path for f in response.dead_functions]
+
+    # Main contract function should be flagged
+    assert "mainFunction()" in signatures
+
+    # Functions in excluded paths should not be flagged
+    assert "libFunction()" not in signatures
+    assert "nodeFunction()" not in signatures
+
+    # Verify no functions from excluded paths
+    for path in paths:
+        assert not path.startswith("lib/")
+        assert not path.startswith("node_modules/")
+
+
+def test_find_dead_code_exclude_paths_empty_list(
+    exclude_paths_project: ProjectFacts, test_path: str
+):
+    """Test that empty exclude_paths does not filter anything."""
+    request = FindDeadCodeRequest(
+        path=test_path,
+        exclude_entry_points=True,
+        exclude_paths=[],
+    )
+    response = find_dead_code(request, exclude_paths_project)
+
+    assert response.success
+    signatures = [f.function_key.signature for f in response.dead_functions]
+
+    # All functions should be flagged when exclude_paths is empty
+    assert "mainFunction()" in signatures
+    assert "libFunction()" in signatures
+    assert "nodeFunction()" in signatures
+
+
+def test_find_dead_code_exclude_paths_none(exclude_paths_project: ProjectFacts, test_path: str):
+    """Test that None exclude_paths does not filter anything."""
+    request = FindDeadCodeRequest(
+        path=test_path,
+        exclude_entry_points=True,
+        exclude_paths=None,
+    )
+    response = find_dead_code(request, exclude_paths_project)
+
+    assert response.success
+    signatures = [f.function_key.signature for f in response.dead_functions]
+
+    # All functions should be flagged when exclude_paths is None
+    assert "mainFunction()" in signatures
+    assert "libFunction()" in signatures
+    assert "nodeFunction()" in signatures

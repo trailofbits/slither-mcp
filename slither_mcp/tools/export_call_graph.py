@@ -177,8 +177,18 @@ def export_call_graph(
         # Check for truncation
         truncated = len(nodes) > request.max_nodes
         if truncated:
-            # Limit nodes - keep first max_nodes
-            kept_nodes = set(list(nodes)[: request.max_nodes])
+            # Calculate node degrees (in + out edges) to prioritize connected nodes
+            node_degrees: dict[str, int] = {n: 0 for n in nodes}
+            for from_node, to_node, _ in edges:
+                if from_node in node_degrees:
+                    node_degrees[from_node] += 1
+                if to_node in node_degrees:
+                    node_degrees[to_node] += 1
+
+            # Keep top nodes by degree to preserve graph connectivity
+            sorted_nodes = sorted(nodes, key=lambda n: node_degrees.get(n, 0), reverse=True)
+            kept_nodes = set(sorted_nodes[: request.max_nodes])
+
             # Filter edges to only include kept nodes
             edges = [(f, t, et) for f, t, et in edges if f in kept_nodes and t in kept_nodes]
             nodes = kept_nodes
