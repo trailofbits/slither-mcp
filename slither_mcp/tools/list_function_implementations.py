@@ -105,7 +105,10 @@ def list_function_implementations(
     implementations = []
     for impl_contract in implementing_contracts:
         # Get the function model to extract visibility and modifiers
+        # Check both declared and inherited functions
         func_model = impl_contract.functions_declared.get(request.function_signature)
+        if not func_model:
+            func_model = impl_contract.functions_inherited.get(request.function_signature)
         if func_model:
             implementations.append(
                 ImplementationInfo(

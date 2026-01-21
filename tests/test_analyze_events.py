@@ -15,7 +15,7 @@ def test_analyze_events_all(project_facts: ProjectFacts, test_path: str):
     assert response.success
     assert response.total_count > 0
     # Check we got events from multiple contracts
-    contracts_with_events = set(e.contract_key.contract_name for e in response.events)
+    contracts_with_events = {e.contract_key.contract_name for e in response.events}
     assert len(contracts_with_events) >= 1
 
 

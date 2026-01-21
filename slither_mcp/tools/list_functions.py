@@ -19,9 +19,7 @@ class FunctionInfo(BaseModel):
     visibility: str
     solidity_modifiers: list[str]
     is_declared: bool  # True if declared, False if inherited
-    line_count: Annotated[
-        int, Field(description="Number of lines in the function")
-    ] = 0
+    line_count: Annotated[int, Field(description="Number of lines in the function")] = 0
 
 
 class ListFunctionsRequest(PaginatedRequest):
@@ -90,9 +88,7 @@ def list_functions(
 
             # Apply modifiers filter
             if request.has_modifiers:
-                if not any(
-                    mod in func_model.solidity_modifiers for mod in request.has_modifiers
-                ):
+                if not any(mod in func_model.solidity_modifiers for mod in request.has_modifiers):
                     continue
 
             # Calculate line count
@@ -120,9 +116,7 @@ def list_functions(
 
             # Apply modifiers filter
             if request.has_modifiers:
-                if not any(
-                    mod in func_model.solidity_modifiers for mod in request.has_modifiers
-                ):
+                if not any(mod in func_model.solidity_modifiers for mod in request.has_modifiers):
                     continue
 
             # Calculate line count
@@ -148,9 +142,7 @@ def list_functions(
         # Define visibility order for sorting
         visibility_order = {"external": 0, "public": 1, "internal": 2, "private": 3}
         if request.sort_by == "name":
-            functions.sort(
-                key=lambda f: f.function_key.signature.lower(), reverse=reverse
-            )
+            functions.sort(key=lambda f: f.function_key.signature.lower(), reverse=reverse)
         elif request.sort_by == "visibility":
             functions.sort(
                 key=lambda f: visibility_order.get(f.visibility.lower(), 4),
@@ -160,9 +152,7 @@ def list_functions(
             functions.sort(key=lambda f: f.line_count, reverse=reverse)
 
     # Apply pagination
-    functions, total_count, has_more = apply_pagination(
-        functions, request.offset, request.limit
-    )
+    functions, total_count, has_more = apply_pagination(functions, request.offset, request.limit)
 
     return ListFunctionsResponse(
         success=True, functions=functions, total_count=total_count, has_more=has_more

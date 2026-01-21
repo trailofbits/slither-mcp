@@ -6,7 +6,12 @@ from pydantic import BaseModel, Field, field_validator
 
 from slither_mcp.pagination import apply_pagination
 from slither_mcp.search import SearchError, compile_pattern, validate_pattern
-from slither_mcp.types import FunctionKey, JSONStringTolerantModel, ProjectFacts
+from slither_mcp.types import (
+    FunctionKey,
+    JSONStringTolerantModel,
+    ProjectFacts,
+    path_matches_exclusion,
+)
 
 
 class SearchFunctionsRequest(JSONStringTolerantModel):
@@ -98,7 +103,7 @@ def search_functions(
     for contract_key, contract_model in project_facts.contracts.items():
         # Apply exclude_paths filter
         if request.exclude_paths:
-            if any(contract_key.path.startswith(p) for p in request.exclude_paths):
+            if path_matches_exclusion(contract_key.path, request.exclude_paths):
                 continue
 
         # Search declared functions

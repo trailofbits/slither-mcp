@@ -539,9 +539,7 @@ class TestExportCallGraphLabelFormat:
         self, call_graph_project_facts: ProjectFacts, test_path: str
     ):
         """Test explicit short label format."""
-        request = ExportCallGraphRequest(
-            path=test_path, format="mermaid", label_format="short"
-        )
+        request = ExportCallGraphRequest(path=test_path, format="mermaid", label_format="short")
         response = export_call_graph(request, call_graph_project_facts)
 
         assert response.success
@@ -551,9 +549,7 @@ class TestExportCallGraphLabelFormat:
 
     def test_label_format_full(self, call_graph_project_facts: ProjectFacts, test_path: str):
         """Test full label format includes function parameters."""
-        request = ExportCallGraphRequest(
-            path=test_path, format="mermaid", label_format="full"
-        )
+        request = ExportCallGraphRequest(path=test_path, format="mermaid", label_format="full")
         response = export_call_graph(request, call_graph_project_facts)
 
         assert response.success
@@ -564,9 +560,7 @@ class TestExportCallGraphLabelFormat:
 
     def test_label_format_full_dot(self, call_graph_project_facts: ProjectFacts, test_path: str):
         """Test full label format in DOT output."""
-        request = ExportCallGraphRequest(
-            path=test_path, format="dot", label_format="full"
-        )
+        request = ExportCallGraphRequest(path=test_path, format="dot", label_format="full")
         response = export_call_graph(request, call_graph_project_facts)
 
         assert response.success
@@ -580,9 +574,7 @@ class TestExportCallGraphLabelFormat:
         self, call_graph_project_facts: ProjectFacts, test_path: str
     ):
         """Test that short format is more readable for complex signatures."""
-        request = ExportCallGraphRequest(
-            path=test_path, format="mermaid", label_format="short"
-        )
+        request = ExportCallGraphRequest(path=test_path, format="mermaid", label_format="short")
         response = export_call_graph(request, call_graph_project_facts)
 
         assert response.success

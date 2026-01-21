@@ -15,7 +15,7 @@ def test_analyze_state_variables_all(project_facts: ProjectFacts, test_path: str
     assert response.success
     assert response.total_count > 0
     # Check we got variables from multiple contracts
-    contracts_with_vars = set(v.contract_key.contract_name for v in response.variables)
+    contracts_with_vars = {v.contract_key.contract_name for v in response.variables}
     assert len(contracts_with_vars) >= 2
 
 

@@ -19,7 +19,7 @@ pragma solidity ^0.8.0;
 
 abstract contract BaseContract {
     uint256 private data;
-    
+
     constructor() {
         data = 0;
     }
@@ -95,9 +95,9 @@ pragma solidity ^0.8.0;
 contract StandaloneContract {
     uint256 public value;
     address public owner;
-    
+
     event ValueSet(uint256 indexed newValue);
-    
+
     modifier nonReentrant() {
         require(!locked, "No reentrancy");
         locked = true;
@@ -150,7 +150,7 @@ pragma solidity ^0.8.0;
 
 library LibraryB {
     uint256 constant MAX = type(uint256).max;
-    
+
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
         require(a <= MAX - b, "Overflow");
         return a + b;
@@ -189,7 +189,7 @@ import "./Base.sol";
 
 contract ChildContract is BaseContract {
     address public owner;
-    
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
         _;
@@ -240,7 +240,7 @@ pragma solidity ^0.8.0;
 
 abstract contract BaseContract {
     uint256 private data;
-    
+
     constructor() {
         data = 0;
     }
@@ -412,7 +412,7 @@ import "./Child.sol";
 
 contract GrandchildContract is ChildContract {
     uint256 public level;
-    
+
     constructor() {
         level = 3;
     }

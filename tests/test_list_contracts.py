@@ -200,9 +200,7 @@ class TestListContractsExcludePaths:
 
     def test_exclude_lib_path(self, test_path, project_facts_with_lib_and_test):
         """Test excluding contracts in lib/ directory."""
-        request = ListContractsRequest(
-            path=test_path, filter_type="all", exclude_paths=["lib/"]
-        )
+        request = ListContractsRequest(path=test_path, filter_type="all", exclude_paths=["lib/"])
         response = list_contracts(request, project_facts_with_lib_and_test)
 
         assert response.success is True
@@ -215,9 +213,7 @@ class TestListContractsExcludePaths:
 
     def test_exclude_test_path(self, test_path, project_facts_with_lib_and_test):
         """Test excluding contracts in test/ directory."""
-        request = ListContractsRequest(
-            path=test_path, filter_type="all", exclude_paths=["test/"]
-        )
+        request = ListContractsRequest(path=test_path, filter_type="all", exclude_paths=["test/"])
         response = list_contracts(request, project_facts_with_lib_and_test)
 
         assert response.success is True
@@ -244,9 +240,7 @@ class TestListContractsExcludePaths:
 
     def test_exclude_paths_none(self, test_path, project_facts_with_lib_and_test):
         """Test that None exclude_paths includes all contracts."""
-        request = ListContractsRequest(
-            path=test_path, filter_type="all", exclude_paths=None
-        )
+        request = ListContractsRequest(path=test_path, filter_type="all", exclude_paths=None)
         response = list_contracts(request, project_facts_with_lib_and_test)
 
         assert response.success is True
@@ -268,3 +262,51 @@ class TestListContractsExcludePaths:
         assert "LibDependency" not in contract_names
         # LibraryB is a library in contracts/ so included
         assert "LibraryB" in contract_names
+
+    def test_exclude_paths_matches_subdirectories(self, test_path, project_facts_with_lib_and_test):
+        """Test that exclude_paths matches subdirectories, not just prefix.
+
+        This tests that exclude_paths=["test/"] will exclude paths like "src/test/foo.sol"
+        (where "test" appears as a subdirectory), not just "test/foo.sol" (prefix match).
+        """
+        from slither_mcp.types import ContractKey, ContractModel
+
+        # Create a contract at "src/test/MockContract.sol"
+        nested_test_key = ContractKey(
+            contract_name="MockContract", path="src/test/MockContract.sol"
+        )
+        nested_test_contract = ContractModel(
+            name="MockContract",
+            key=nested_test_key,
+            path="src/test/MockContract.sol",
+            is_abstract=False,
+            is_fully_implemented=True,
+            is_interface=False,
+            is_library=False,
+            directly_inherits=[],
+            scopes=[nested_test_key],
+            functions_declared={},
+            functions_inherited={},
+        )
+
+        # Add to project_facts
+        from slither_mcp.types import ProjectFacts
+
+        contracts = dict(project_facts_with_lib_and_test.contracts)
+        contracts[nested_test_key] = nested_test_contract
+        facts = ProjectFacts(contracts=contracts, project_dir="/test/project")
+
+        # Exclude "test/" - should match both "test/" prefix and "src/test/" subdirectory
+        request = ListContractsRequest(path=test_path, filter_type="all", exclude_paths=["test/"])
+        response = list_contracts(request, facts)
+
+        assert response.success is True
+        contract_names = {c.key.contract_name for c in response.contracts}
+
+        # Both TestHelper (in test/helpers/) and MockContract (in src/test/) should be excluded
+        assert "TestHelper" not in contract_names
+        assert "MockContract" not in contract_names
+
+        # Other contracts should still be present
+        assert "BaseContract" in contract_names
+        assert "ChildContract" in contract_names

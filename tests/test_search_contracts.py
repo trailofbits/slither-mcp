@@ -140,9 +140,7 @@ class TestSearchContractsExcludePaths:
 
     def test_exclude_lib_path(self, project_facts_with_lib_and_test: ProjectFacts, test_path: str):
         """Test excluding contracts in lib/ directory from search results."""
-        request = SearchContractsRequest(
-            path=test_path, pattern=".*", exclude_paths=["lib/"]
-        )
+        request = SearchContractsRequest(path=test_path, pattern=".*", exclude_paths=["lib/"])
         response = search_contracts(request, project_facts_with_lib_and_test)
 
         assert response.success
@@ -154,9 +152,7 @@ class TestSearchContractsExcludePaths:
 
     def test_exclude_test_path(self, project_facts_with_lib_and_test: ProjectFacts, test_path: str):
         """Test excluding contracts in test/ directory from search results."""
-        request = SearchContractsRequest(
-            path=test_path, pattern=".*", exclude_paths=["test/"]
-        )
+        request = SearchContractsRequest(path=test_path, pattern=".*", exclude_paths=["test/"])
         response = search_contracts(request, project_facts_with_lib_and_test)
 
         assert response.success
@@ -186,9 +182,7 @@ class TestSearchContractsExcludePaths:
     ):
         """Test exclude_paths works with pattern matching."""
         # Search for "Helper" which matches both TestHelper and potentially others
-        request = SearchContractsRequest(
-            path=test_path, pattern="Helper", exclude_paths=["test/"]
-        )
+        request = SearchContractsRequest(path=test_path, pattern="Helper", exclude_paths=["test/"])
         response = search_contracts(request, project_facts_with_lib_and_test)
 
         assert response.success

@@ -8,6 +8,7 @@ from slither_mcp.pagination import PaginatedRequest, apply_pagination
 from slither_mcp.types import (
     ContractKey,
     ProjectFacts,
+    path_matches_exclusion,
 )
 
 
@@ -73,7 +74,7 @@ def list_contracts(
     for key, model in project_facts.contracts.items():
         # Apply exclude_paths filter
         if request.exclude_paths:
-            if any(key.path.startswith(p) for p in request.exclude_paths):
+            if path_matches_exclusion(key.path, request.exclude_paths):
                 continue
 
         # Apply filter_type
@@ -116,9 +117,7 @@ def list_contracts(
             contracts.sort(key=lambda c: c.function_count, reverse=reverse)
 
     # Apply pagination
-    contracts, total_count, has_more = apply_pagination(
-        contracts, request.offset, request.limit
-    )
+    contracts, total_count, has_more = apply_pagination(contracts, request.offset, request.limit)
 
     return ListContractsResponse(
         success=True, contracts=contracts, total_count=total_count, has_more=has_more

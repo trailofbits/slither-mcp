@@ -19,14 +19,14 @@ pragma solidity ^0.8.0;
 
 contract ReentrancyVulnerable {
     mapping(address => uint256) public balances;
-    
+
     function withdraw() public {
         uint256 amount = balances[msg.sender];
         (bool success, ) = msg.sender.call{value: amount}("");
         require(success);
         balances[msg.sender] = 0;
     }
-    
+
     function deposit() public payable {
         balances[msg.sender] += msg.value;
     }
@@ -42,9 +42,9 @@ contract UninitializedStorage {
         uint256 value;
         address owner;
     }
-    
+
     Data[] public dataArray;
-    
+
     function addData() public {
         Data storage newData;  // Uninitialized storage pointer
         newData.value = 100;
@@ -62,7 +62,7 @@ contract LowLevelCalls {
     function sendEth(address payable recipient, uint256 amount) public {
         recipient.call{value: amount}("");
     }
-    
+
     function delegateToImpl(address impl, bytes memory data) public {
         impl.delegatecall(data);
     }
@@ -75,7 +75,7 @@ pragma solidity ^0.8.0;  // Using buggy version
 
 contract SolcVersion {
     uint256 public value;
-    
+
     function setValue(uint256 newValue) public {
         value = newValue;
     }
@@ -208,13 +208,13 @@ pragma solidity ^0.8.0;
 
 contract MultipleIssues {
     uint256 public value;
-    
+
     function withdraw() public {
         (bool success, ) = msg.sender.call{value: address(this).balance}("");
         require(success);
         value = 0;
     }
-    
+
     function externalCall(address target) public {
         target.call("");
     }
@@ -291,7 +291,7 @@ pragma solidity ^0.8.0;
 contract Invalid {
     // Syntax error - missing semicolon
     uint256 public value
-    
+
     function test() public {
         value = 1;
     }

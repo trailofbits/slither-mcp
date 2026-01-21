@@ -719,7 +719,9 @@ def detector_results_with_test_findings():
                 confidence="High",
                 description="Test helper has uninitialized storage",
                 source_locations=[
-                    SourceLocation(file_path="test/helpers/TestHelper.sol", start_line=3, end_line=3)
+                    SourceLocation(
+                        file_path="test/helpers/TestHelper.sol", start_line=3, end_line=3
+                    )
                 ],
             ),
             DetectorResult(

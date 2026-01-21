@@ -158,7 +158,7 @@ class TestRunDetectorsEdgeCases:
     """Test edge cases for run_detectors."""
 
     def test_run_detectors_nonexistent_name(self, test_path, project_facts_with_detectors):
-        """Test running a detector that doesn't exist."""
+        """Test running a detector that doesn't exist returns empty results with warning."""
         request = RunDetectorsRequest(path=test_path, detector_names=["nonexistent-detector"])
         response = run_detectors(request, project_facts_with_detectors)
 
@@ -166,6 +166,37 @@ class TestRunDetectorsEdgeCases:
         assert response.error_message is None
         assert response.total_count == 0
         assert len(response.results) == 0
+        # New: should report invalid detector name
+        assert response.invalid_detector_names == ["nonexistent-detector"]
+
+    def test_run_detectors_partial_invalid_names(self, test_path, project_facts_with_detectors):
+        """Test running a mix of valid and invalid detector names."""
+        request = RunDetectorsRequest(
+            path=test_path, detector_names=["reentrancy-eth", "nonexistent", "also-invalid"]
+        )
+        response = run_detectors(request, project_facts_with_detectors)
+
+        assert response.success is True
+        # Should still return results for valid detector
+        assert response.total_count == 1
+        assert response.results[0].detector_name == "reentrancy-eth"
+        # Should report invalid names
+        assert response.invalid_detector_names is not None
+        assert set(response.invalid_detector_names) == {"nonexistent", "also-invalid"}
+
+    def test_run_detectors_all_valid_names_no_warning(
+        self, test_path, project_facts_with_detectors
+    ):
+        """Test that valid detector names don't produce invalid_detector_names."""
+        request = RunDetectorsRequest(
+            path=test_path, detector_names=["reentrancy-eth", "naming-convention"]
+        )
+        response = run_detectors(request, project_facts_with_detectors)
+
+        assert response.success is True
+        assert response.total_count == 3  # 1 reentrancy + 2 naming
+        # No invalid detector names
+        assert response.invalid_detector_names is None
 
     def test_run_detectors_empty_project(self, test_path, empty_project_facts):
         """Test running detectors on empty project."""

@@ -1,10 +1,9 @@
 """Tests for types.py functions."""
 
-import pytest
-
 from slither_mcp.types import (
     find_matching_signature,
     normalize_signature,
+    path_matches_exclusion,
 )
 
 
@@ -101,12 +100,67 @@ class TestFindMatchingSignature:
             "swap(PoolKey,SwapParams,bytes)": "normalized",
         }
         # Exact match should be preferred
-        result = find_matching_signature(
-            "swap(PoolKey,IPoolManager.SwapParams,bytes)", available
-        )
+        result = find_matching_signature("swap(PoolKey,IPoolManager.SwapParams,bytes)", available)
         assert result == "swap(PoolKey,IPoolManager.SwapParams,bytes)"
 
     def test_empty_dict(self):
         """Test with empty available signatures."""
         result = find_matching_signature("transfer()", {})
         assert result is None
+
+
+class TestPathMatchesExclusion:
+    """Tests for path_matches_exclusion function."""
+
+    def test_prefix_match(self):
+        """Test that prefix patterns match paths starting with the pattern."""
+        assert path_matches_exclusion("lib/foo.sol", ["lib/"]) is True
+        assert path_matches_exclusion("lib/nested/foo.sol", ["lib/"]) is True
+
+    def test_component_match(self):
+        """Test that patterns match when they appear as path components."""
+        assert path_matches_exclusion("src/test/foo.sol", ["test/"]) is True
+        assert path_matches_exclusion("deep/nested/test/file.sol", ["test/"]) is True
+
+    def test_both_prefix_and_component(self):
+        """Test that both prefix and component matching work together."""
+        assert path_matches_exclusion("test/foo.sol", ["test/"]) is True
+        assert path_matches_exclusion("src/test/foo.sol", ["test/"]) is True
+
+    def test_no_match(self):
+        """Test that non-matching paths return False."""
+        assert path_matches_exclusion("contracts/foo.sol", ["lib/", "test/"]) is False
+        assert path_matches_exclusion("src/Contract.sol", ["test/"]) is False
+
+    def test_pattern_without_trailing_slash(self):
+        """Test that patterns work with or without trailing slash."""
+        assert path_matches_exclusion("lib/foo.sol", ["lib"]) is True
+        assert path_matches_exclusion("src/lib/foo.sol", ["lib"]) is True
+
+    def test_multiple_patterns(self):
+        """Test matching against multiple exclusion patterns."""
+        patterns = ["lib/", "test/", "node_modules/"]
+        assert path_matches_exclusion("lib/foo.sol", patterns) is True
+        assert path_matches_exclusion("src/test/helper.sol", patterns) is True
+        assert path_matches_exclusion("node_modules/pkg/index.sol", patterns) is True
+        assert path_matches_exclusion("contracts/Main.sol", patterns) is False
+
+    def test_backslash_normalization(self):
+        """Test that backslashes are normalized to forward slashes."""
+        assert path_matches_exclusion("lib\\foo.sol", ["lib/"]) is True
+        assert path_matches_exclusion("src\\test\\foo.sol", ["test/"]) is True
+
+    def test_exact_path_match(self):
+        """Test that exact path names match."""
+        assert path_matches_exclusion("lib", ["lib"]) is True
+        assert path_matches_exclusion("test", ["test/"]) is True
+
+    def test_partial_name_no_match(self):
+        """Test that partial name matches don't count as component matches."""
+        # "testing" contains "test" but shouldn't match "test/" as a component
+        assert path_matches_exclusion("testing/foo.sol", ["test/"]) is False
+        assert path_matches_exclusion("contracts/testing.sol", ["test/"]) is False
+
+    def test_empty_patterns(self):
+        """Test with empty patterns list."""
+        assert path_matches_exclusion("any/path.sol", []) is False
