@@ -10,7 +10,7 @@ from slither_mcp.constants import (
     TEST_FUNCTION_PREFIX,
 )
 from slither_mcp.pagination import PaginatedRequest, apply_pagination
-from slither_mcp.types import ContractKey, FunctionKey, ProjectFacts
+from slither_mcp.types import ContractKey, FunctionKey, ProjectFacts, path_matches_exclusion
 
 
 class DeadCodeFunction(BaseModel):
@@ -185,7 +185,7 @@ def find_dead_code(
 
             # Skip contracts matching exclude_paths
             if request.exclude_paths:
-                if any(contract_key.path.startswith(p) for p in request.exclude_paths):
+                if path_matches_exclusion(contract_key.path, request.exclude_paths):
                     continue
 
             # Check declared functions

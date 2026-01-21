@@ -58,11 +58,11 @@ def validate_path_within_project(project_path: str, relative_path: str) -> str:
     Raises:
         PathTraversalError: If the path would escape the project directory
     """
-    # Normalize project path to absolute
-    project_abs = os.path.abspath(project_path)
+    # Normalize project path to absolute, resolving symlinks (e.g., /tmp -> /private/tmp on macOS)
+    project_abs = os.path.realpath(project_path)
 
-    # Join and normalize the full path
-    full_path = os.path.normpath(os.path.join(project_abs, relative_path))
+    # Join and normalize the full path, resolving any symlinks
+    full_path = os.path.realpath(os.path.join(project_abs, relative_path))
 
     # Check if the full path is still within the project directory
     # Use commonpath to handle edge cases properly
@@ -517,7 +517,11 @@ class ProjectFacts(BaseModel):
 
             for _, model in self.contracts.items():
                 if parent_contract.key in model.directly_inherits:
-                    if model.functions_declared.get(f):
+                    # Check both declared and inherited functions
+                    has_implementation = model.functions_declared.get(
+                        f
+                    ) or model.functions_inherited.get(f)
+                    if has_implementation:
                         children_with_implementation.append(model)
 
                         # check for even deeper inherited contracts that override the implementation
@@ -768,9 +772,33 @@ def normalize_signature(sig: str) -> str:
     return f"{name}({','.join(normalized_params)})"
 
 
-def find_matching_signature(
-    target_sig: str, available_signatures: dict[str, Any]
-) -> str | None:
+def path_matches_exclusion(file_path: str, exclude_patterns: list[str]) -> bool:
+    """Check if file_path should be excluded based on patterns.
+
+    Supports:
+    - Prefix matching: "lib/" matches "lib/foo.sol"
+    - Component matching: "test/" matches "src/test/foo.sol"
+
+    Args:
+        file_path: The file path to check (e.g., "src/test/Contract.sol")
+        exclude_patterns: List of path patterns to exclude (e.g., ["lib/", "test/"])
+
+    Returns:
+        True if the path matches any exclusion pattern, False otherwise.
+    """
+    normalized = file_path.replace("\\", "/")
+    for pattern in exclude_patterns:
+        pattern = pattern.rstrip("/")
+        # Prefix match: "lib" matches "lib/foo.sol"
+        if normalized.startswith(pattern + "/") or normalized == pattern:
+            return True
+        # Component match: "test" matches "src/test/foo.sol"
+        if f"/{pattern}/" in f"/{normalized}/":
+            return True
+    return False
+
+
+def find_matching_signature(target_sig: str, available_signatures: dict[str, Any]) -> str | None:
     """Find a matching signature using normalized comparison.
 
     First tries exact match, then falls back to normalized matching.

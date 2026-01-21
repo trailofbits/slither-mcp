@@ -163,30 +163,22 @@ class TestSearchFunctionsExcludePaths:
 
     def test_exclude_lib_path(self, project_facts_with_lib_and_test: ProjectFacts, test_path: str):
         """Test excluding functions from lib/ directory."""
-        request = SearchFunctionsRequest(
-            path=test_path, pattern=".*", exclude_paths=["lib/"]
-        )
+        request = SearchFunctionsRequest(path=test_path, pattern=".*", exclude_paths=["lib/"])
         response = search_functions(request, project_facts_with_lib_and_test)
 
         assert response.success
         # helperFunction from LibDependency should be excluded
-        lib_functions = [
-            m for m in response.matches if m.contract_name == "LibDependency"
-        ]
+        lib_functions = [m for m in response.matches if m.contract_name == "LibDependency"]
         assert len(lib_functions) == 0
 
     def test_exclude_test_path(self, project_facts_with_lib_and_test: ProjectFacts, test_path: str):
         """Test excluding functions from test/ directory."""
-        request = SearchFunctionsRequest(
-            path=test_path, pattern=".*", exclude_paths=["test/"]
-        )
+        request = SearchFunctionsRequest(path=test_path, pattern=".*", exclude_paths=["test/"])
         response = search_functions(request, project_facts_with_lib_and_test)
 
         assert response.success
         # setUp from TestHelper should be excluded
-        test_functions = [
-            m for m in response.matches if m.contract_name == "TestHelper"
-        ]
+        test_functions = [m for m in response.matches if m.contract_name == "TestHelper"]
         assert len(test_functions) == 0
 
     def test_exclude_multiple_paths(
@@ -223,9 +215,7 @@ class TestSearchFunctionsDeduplication:
 
     def test_deduplication_disabled(self, project_facts: ProjectFacts, test_path: str):
         """Test that deduplication can be disabled."""
-        request = SearchFunctionsRequest(
-            path=test_path, pattern="initialize", deduplicate=False
-        )
+        request = SearchFunctionsRequest(path=test_path, pattern="initialize", deduplicate=False)
         response = search_functions(request, project_facts)
 
         assert response.success
@@ -241,9 +231,7 @@ class TestSearchFunctionsDeduplication:
         response = search_functions(request, project_facts)
 
         assert response.success
-        # Each contract should appear at most once for this function
-        contract_names = [m.contract_name for m in response.matches]
-        # Check no duplicate contract names (for same signature)
+        # Check no duplicate (contract_name, signature) pairs
         signatures_by_contract = {}
         for match in response.matches:
             if match.contract_name not in signatures_by_contract:

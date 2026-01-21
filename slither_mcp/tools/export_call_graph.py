@@ -203,7 +203,7 @@ def export_call_graph(
         truncated = len(nodes) > request.max_nodes
         if truncated:
             # Calculate node degrees (in + out edges) to prioritize connected nodes
-            node_degrees: dict[str, int] = {n: 0 for n in nodes}
+            node_degrees: dict[str, int] = dict.fromkeys(nodes, 0)
             for from_node, to_node, _ in edges:
                 if from_node in node_degrees:
                     node_degrees[from_node] += 1

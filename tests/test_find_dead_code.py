@@ -521,9 +521,7 @@ def exclude_paths_project():
     """Project with contracts in different directories."""
     contract_main_key = ContractKey(contract_name="MainContract", path="src/Main.sol")
     contract_lib_key = ContractKey(contract_name="LibContract", path="lib/forge-std/Lib.sol")
-    contract_node_key = ContractKey(
-        contract_name="NodeContract", path="node_modules/dep/Node.sol"
-    )
+    contract_node_key = ContractKey(contract_name="NodeContract", path="node_modules/dep/Node.sol")
 
     empty_callees = FunctionCallees(
         internal_callees=[],

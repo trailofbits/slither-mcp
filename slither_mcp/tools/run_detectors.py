@@ -8,6 +8,7 @@ from slither_mcp.pagination import PaginatedRequest, apply_pagination
 from slither_mcp.types import (
     DetectorResult,
     ProjectFacts,
+    path_matches_exclusion,
 )
 
 
@@ -36,6 +37,10 @@ class RunDetectorsResponse(BaseModel):
     has_more: Annotated[
         bool, Field(description="True if there are more results beyond this page")
     ] = False
+    invalid_detector_names: Annotated[
+        list[str] | None,
+        Field(description="Detector names that were requested but not recognized"),
+    ] = None
     error_message: str | None = None
 
 
@@ -57,6 +62,14 @@ def run_detectors(
     """
     try:
         all_results = []
+        invalid_names: list[str] = []
+
+        # Validate detector names if provided
+        if request.detector_names:
+            available_names = {d.name.lower() for d in project_facts.available_detectors}
+            invalid_names = [
+                name for name in request.detector_names if name.lower() not in available_names
+            ]
 
         # Collect results from all detectors or filtered detectors
         if request.detector_names:
@@ -91,7 +104,7 @@ def run_detectors(
                     filtered_results.append(result)
                     continue
                 has_non_excluded_location = any(
-                    not any(loc.file_path.startswith(p) for p in request.exclude_paths)
+                    not path_matches_exclusion(loc.file_path, request.exclude_paths)
                     for loc in result.source_locations
                 )
                 if has_non_excluded_location:
@@ -104,7 +117,11 @@ def run_detectors(
         )
 
         return RunDetectorsResponse(
-            success=True, results=all_results, total_count=total_count, has_more=has_more
+            success=True,
+            results=all_results,
+            total_count=total_count,
+            has_more=has_more,
+            invalid_detector_names=invalid_names if invalid_names else None,
         )
     except Exception as e:
         return RunDetectorsResponse(
