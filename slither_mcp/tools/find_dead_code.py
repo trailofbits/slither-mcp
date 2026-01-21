@@ -12,6 +12,13 @@ from slither_mcp.constants import (
 from slither_mcp.pagination import PaginatedRequest, apply_pagination
 from slither_mcp.types import ContractKey, FunctionKey, ProjectFacts, path_matches_exclusion
 
+# Default paths to exclude when exclude_test_frameworks is True
+DEFAULT_TEST_FRAMEWORK_PATHS = [
+    "lib/forge-std/",
+    "lib/ds-test/",
+    "node_modules/",
+]
+
 
 class DeadCodeFunction(BaseModel):
     """A function identified as potentially dead code."""
@@ -46,6 +53,13 @@ class FindDeadCodeRequest(PaginatedRequest):
         list[str] | None,
         Field(description="Path prefixes to exclude (e.g., ['lib/', 'node_modules/'])"),
     ] = None
+    exclude_test_frameworks: Annotated[
+        bool,
+        Field(
+            description="Exclude common test framework paths like lib/forge-std/, lib/ds-test/, "
+            "node_modules/ (default: True)"
+        ),
+    ] = True
 
 
 class FindDeadCodeResponse(BaseModel):
@@ -178,14 +192,19 @@ def find_dead_code(
         else:
             contracts_to_check = list(project_facts.contracts.items())
 
+        # Build effective exclusions list
+        effective_exclusions = list(request.exclude_paths or [])
+        if request.exclude_test_frameworks:
+            effective_exclusions.extend(DEFAULT_TEST_FRAMEWORK_PATHS)
+
         for contract_key, contract_model in contracts_to_check:
             # Skip interfaces and libraries for dead code analysis
             if contract_model.is_interface or contract_model.is_library:
                 continue
 
             # Skip contracts matching exclude_paths
-            if request.exclude_paths:
-                if path_matches_exclusion(contract_key.path, request.exclude_paths):
+            if effective_exclusions:
+                if path_matches_exclusion(contract_key.path, effective_exclusions):
                     continue
 
             # Check declared functions

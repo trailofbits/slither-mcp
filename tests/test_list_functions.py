@@ -237,6 +237,86 @@ class TestListFunctionsErrorCases:
         assert response.total_count == 0
 
 
+class TestListFunctionsProjectWide:
+    """Test project-wide listing (no contract_key)."""
+
+    def test_list_all_functions_project_wide(self, test_path, project_facts):
+        """Test listing all functions across all contracts."""
+        request = ListFunctionsRequest(path=test_path)  # No contract_key
+        response = list_functions(request, project_facts)
+
+        assert response.success is True
+        assert response.error_message is None
+        # Should have functions from all contracts
+        assert response.total_count > 0
+
+        # Verify functions from multiple contracts are included
+        contract_names = {f.function_key.contract_name for f in response.functions}
+        assert len(contract_names) > 1  # Multiple contracts
+
+    def test_list_functions_project_wide_with_exclude_paths(
+        self, test_path, project_facts_with_lib_and_test
+    ):
+        """Test project-wide listing with path exclusions."""
+        request = ListFunctionsRequest(path=test_path, exclude_paths=["lib/", "test/"])
+        response = list_functions(request, project_facts_with_lib_and_test)
+
+        assert response.success is True
+
+        # Verify no functions from excluded paths
+        for func in response.functions:
+            assert not func.function_key.path.startswith("lib/")
+            assert not func.function_key.path.startswith("test/")
+
+    def test_list_functions_project_wide_with_visibility_filter(self, test_path, project_facts):
+        """Test project-wide listing with visibility filter."""
+        request = ListFunctionsRequest(path=test_path, visibility=["external"])
+        response = list_functions(request, project_facts)
+
+        assert response.success is True
+
+        # All functions should be external
+        for func in response.functions:
+            assert func.visibility == "external"
+
+    def test_list_functions_project_wide_pagination(self, test_path, project_facts):
+        """Test pagination across multiple contracts."""
+        # First get total count
+        full_request = ListFunctionsRequest(path=test_path)
+        full_response = list_functions(full_request, project_facts)
+        total = full_response.total_count
+
+        # Now paginate
+        request = ListFunctionsRequest(path=test_path, limit=3, offset=0)
+        response = list_functions(request, project_facts)
+
+        assert response.success is True
+        assert len(response.functions) == min(3, total)
+        assert response.total_count == total
+        if total > 3:
+            assert response.has_more is True
+
+    def test_list_functions_project_wide_with_sorting(self, test_path, project_facts):
+        """Test project-wide listing with sorting."""
+        request = ListFunctionsRequest(path=test_path, sort_by="name", sort_order="asc")
+        response = list_functions(request, project_facts)
+
+        assert response.success is True
+
+        # Verify sorting
+        signatures = [f.function_key.signature.lower() for f in response.functions]
+        assert signatures == sorted(signatures)
+
+    def test_list_functions_project_wide_empty_project(self, test_path, empty_project_facts):
+        """Test project-wide listing with empty project."""
+        request = ListFunctionsRequest(path=test_path)
+        response = list_functions(request, empty_project_facts)
+
+        assert response.success is True
+        assert response.total_count == 0
+        assert len(response.functions) == 0
+
+
 class TestListFunctionsEdgeCases:
     """Test edge cases for list_functions."""
 

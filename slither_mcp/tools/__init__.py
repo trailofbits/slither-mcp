@@ -76,6 +76,12 @@ from slither_mcp.tools.get_inherited_contracts import (
     InheritanceNode,
     get_inherited_contracts,
 )
+from slither_mcp.tools.get_storage_layout import (
+    GetStorageLayoutRequest,
+    GetStorageLayoutResponse,
+    StorageSlotInfo,
+    get_storage_layout,
+)
 from slither_mcp.tools.get_project_overview import (
     GetProjectOverviewRequest,
     GetProjectOverviewResponse,
@@ -165,6 +171,11 @@ __all__ = [
     "GetDerivedContractsRequest",
     "GetDerivedContractsResponse",
     "get_derived_contracts",
+    # Storage layout
+    "StorageSlotInfo",
+    "GetStorageLayoutRequest",
+    "GetStorageLayoutResponse",
+    "get_storage_layout",
     "ImplementationInfo",
     "ListFunctionImplementationsRequest",
     "ListFunctionImplementationsResponse",

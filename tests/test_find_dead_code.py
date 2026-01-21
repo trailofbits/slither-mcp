@@ -653,18 +653,19 @@ def test_find_dead_code_exclude_paths(exclude_paths_project: ProjectFacts, test_
 def test_find_dead_code_exclude_paths_empty_list(
     exclude_paths_project: ProjectFacts, test_path: str
 ):
-    """Test that empty exclude_paths does not filter anything."""
+    """Test that empty exclude_paths does not filter anything when exclude_test_frameworks=False."""
     request = FindDeadCodeRequest(
         path=test_path,
         exclude_entry_points=True,
         exclude_paths=[],
+        exclude_test_frameworks=False,  # Disable default exclusions
     )
     response = find_dead_code(request, exclude_paths_project)
 
     assert response.success
     signatures = [f.function_key.signature for f in response.dead_functions]
 
-    # All functions should be flagged when exclude_paths is empty
+    # All functions should be flagged when exclude_paths is empty and exclude_test_frameworks=False
     assert "mainFunction()" in signatures
     assert "libFunction()" in signatures
     assert "nodeFunction()" in signatures
@@ -676,13 +677,85 @@ def test_find_dead_code_exclude_paths_none(exclude_paths_project: ProjectFacts, 
         path=test_path,
         exclude_entry_points=True,
         exclude_paths=None,
+        exclude_test_frameworks=False,  # Disable default exclusions
     )
     response = find_dead_code(request, exclude_paths_project)
 
     assert response.success
     signatures = [f.function_key.signature for f in response.dead_functions]
 
-    # All functions should be flagged when exclude_paths is None
+    # All functions should be flagged when exclude_paths is None and exclude_test_frameworks=False
     assert "mainFunction()" in signatures
     assert "libFunction()" in signatures
     assert "nodeFunction()" in signatures
+
+
+def test_find_dead_code_exclude_test_frameworks_default(
+    exclude_paths_project: ProjectFacts, test_path: str
+):
+    """Test that exclude_test_frameworks=True (default) excludes forge-std and node_modules."""
+    # Default behavior: exclude_test_frameworks=True
+    request = FindDeadCodeRequest(
+        path=test_path,
+        exclude_entry_points=True,
+    )
+    response = find_dead_code(request, exclude_paths_project)
+
+    assert response.success
+    signatures = [f.function_key.signature for f in response.dead_functions]
+    paths = [f.function_key.path for f in response.dead_functions]
+
+    # Main contract function should be flagged
+    assert "mainFunction()" in signatures
+
+    # Functions in default excluded paths (forge-std, node_modules) should NOT be flagged
+    assert "libFunction()" not in signatures  # lib/forge-std/
+    assert "nodeFunction()" not in signatures  # node_modules/
+
+    # Verify no functions from default excluded paths
+    for path in paths:
+        assert not path.startswith("lib/forge-std/")
+        assert not path.startswith("node_modules/")
+
+
+def test_find_dead_code_exclude_test_frameworks_false(
+    exclude_paths_project: ProjectFacts, test_path: str
+):
+    """Test that exclude_test_frameworks=False disables default exclusions."""
+    request = FindDeadCodeRequest(
+        path=test_path,
+        exclude_entry_points=True,
+        exclude_test_frameworks=False,
+    )
+    response = find_dead_code(request, exclude_paths_project)
+
+    assert response.success
+    signatures = [f.function_key.signature for f in response.dead_functions]
+
+    # All functions should be flagged when exclude_test_frameworks=False
+    assert "mainFunction()" in signatures
+    assert "libFunction()" in signatures
+    assert "nodeFunction()" in signatures
+
+
+def test_find_dead_code_exclude_test_frameworks_with_custom_paths(
+    exclude_paths_project: ProjectFacts, test_path: str
+):
+    """Test that exclude_test_frameworks combines with custom exclude_paths."""
+    request = FindDeadCodeRequest(
+        path=test_path,
+        exclude_entry_points=True,
+        exclude_paths=["src/"],  # Custom exclusion
+        exclude_test_frameworks=True,  # Default exclusions also apply
+    )
+    response = find_dead_code(request, exclude_paths_project)
+
+    assert response.success
+    signatures = [f.function_key.signature for f in response.dead_functions]
+
+    # Main function is in src/, should be excluded by custom path
+    assert "mainFunction()" not in signatures
+
+    # Functions in default excluded paths should also be excluded
+    assert "libFunction()" not in signatures
+    assert "nodeFunction()" not in signatures
