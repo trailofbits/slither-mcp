@@ -93,7 +93,8 @@ def tool_name_function(
 ```
 slither_mcp/
 ├── __init__.py              # Package exports
-├── server.py                # FastMCP server entry point, tool registration
+├── server.py                # FastMCP server entry point, metrics integration
+├── tool_registry.py         # Tool registration with FastMCP server
 ├── types.py                 # Core type definitions (ContractKey, FunctionModel, etc.)
 ├── metrics.py               # Metrics configuration and persistence
 ├── slither_wrapper.py       # Lazy-loading Slither wrapper
@@ -107,6 +108,8 @@ slither_mcp/
 │   ├── get_contract_source.py    # Query: Get contract source code
 │   ├── get_function_source.py    # Query: Get function source code
 │   ├── list_functions.py    # Query: List/filter functions
+│   ├── search_contracts.py  # Search: Find contracts by regex pattern
+│   ├── search_functions.py  # Search: Find functions by regex pattern
 │   ├── list_function_callees.py  # Analysis: Function call relationships
 │   ├── list_function_callers.py  # Analysis: Function callers
 │   ├── get_inherited_contracts.py  # Analysis: Get parent contracts
@@ -125,7 +128,7 @@ tests/
 ```
 
 ### Data Flow
-1. **Server Start**: `server.py` initializes FastMCP server, registers tools
+1. **Server Start**: `server.py` initializes FastMCP server, `tool_registry.py` registers all tools
 2. **First Tool Call**: Triggers lazy loading in `slither_wrapper.py`
 3. **Slither Analysis**: Runs Slither on target project (or loads from cache)
 4. **Facts Generation**: `facts.py` extracts data from Slither into `ProjectFacts`
@@ -383,7 +386,8 @@ Order imports as:
 
 | File | Purpose |
 |------|---------|
-| `server.py` | Main entry point, tool registration, metrics integration |
+| `server.py` | Main entry point, CLI args, metrics integration |
+| `tool_registry.py` | Registers all MCP tools with FastMCP server |
 | `types.py` | Core type definitions (read this first!) |
 | `metrics.py` | Metrics configuration and persistence |
 | `facts.py` | Converts Slither objects to ProjectFacts |

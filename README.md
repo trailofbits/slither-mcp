@@ -163,6 +163,14 @@ For detailed usage examples and documentation, see [CLIENT_USAGE.md](CLIENT_USAG
 
 ## Development
 
+### Pre-commit Hooks
+
+Install pre-commit hooks to run linting before commits:
+
+```bash
+pre-commit install
+```
+
 ### Running Tests
 
 ```bash

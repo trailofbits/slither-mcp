@@ -1,18 +1,20 @@
 """Tool for getting detailed contract information."""
 
 from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 from slither_mcp.types import (
     ContractKey,
     ContractModel,
-    ProjectFacts,
     JSONStringTolerantModel,
+    ProjectFacts,
 )
 
 
 class GetContractRequest(JSONStringTolerantModel):
     """Request to get detailed contract information."""
+
     path: Annotated[str, Field(description="Path to the Solidity project directory")]
     contract_key: ContractKey
     include_functions: bool = True
@@ -20,33 +22,35 @@ class GetContractRequest(JSONStringTolerantModel):
 
 class GetContractResponse(BaseModel):
     """Response containing contract details."""
+
     success: bool
     contract: ContractModel | None = None
     error_message: str | None = None
 
 
-def get_contract(
-    request: GetContractRequest,
-    project_facts: ProjectFacts
-) -> GetContractResponse:
+def get_contract(request: GetContractRequest, project_facts: ProjectFacts) -> GetContractResponse:
     """
     Get detailed contract information.
-    
+
     Args:
         request: The get contract request
         project_facts: The project facts containing contract data
-        
+
     Returns:
         GetContractResponse with contract details or error
     """
     contract_model = project_facts.contracts.get(request.contract_key)
-    
+
     if contract_model is None:
         return GetContractResponse(
             success=False,
-            error_message=f"Contract not found: {request.contract_key.contract_name}"
+            error_message=(
+                f"Contract not found: '{request.contract_key.contract_name}' "
+                f"at '{request.contract_key.path}'. "
+                f"Use search_contracts or list_contracts to find available contracts."
+            ),
         )
-    
+
     # If not including functions, create a copy without them
     if not request.include_functions:
         # Create a minimal contract model without functions
@@ -61,11 +65,7 @@ def get_contract(
             directly_inherits=contract_model.directly_inherits,
             scopes=contract_model.scopes,
             functions_declared={},
-            functions_inherited={}
+            functions_inherited={},
         )
-    
-    return GetContractResponse(
-        success=True,
-        contract=contract_model
-    )
 
+    return GetContractResponse(success=True, contract=contract_model)

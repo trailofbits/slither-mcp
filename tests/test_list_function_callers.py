@@ -1,16 +1,17 @@
 """Tests for list_function_callers tool."""
 
 import pytest
+
 from slither_mcp.tools.list_function_callers import (
     FunctionCallersRequest,
     list_function_callers,
 )
 from slither_mcp.types import (
     ContractKey,
+    ContractModel,
+    FunctionCallees,
     FunctionKey,
     FunctionModel,
-    FunctionCallees,
-    ContractModel,
     ProjectFacts,
 )
 
@@ -72,7 +73,7 @@ def project_facts_with_callers(
     empty_callees,
 ):
     """ProjectFacts with contracts that have various caller relationships."""
-    
+
     # BaseContract with initialize() and baseFunction()
     base_contract = ContractModel(
         name="BaseContract",
@@ -114,7 +115,7 @@ def project_facts_with_callers(
         },
         functions_inherited={},
     )
-    
+
     # ChildContract that calls baseFunction() internally
     child_contract = ContractModel(
         name="ChildContract",
@@ -170,7 +171,7 @@ def project_facts_with_callers(
             ),
         },
     )
-    
+
     # GrandchildContract that calls childFunction() externally and multiple others
     grandchild_contract = ContractModel(
         name="GrandchildContract",
@@ -252,7 +253,7 @@ def project_facts_with_callers(
             ),
         },
     )
-    
+
     # StandaloneContract with no callers
     standalone_contract = ContractModel(
         name="StandaloneContract",
@@ -339,19 +340,19 @@ class TestListFunctionCallersHappyPath:
         assert response.success is True
         assert response.error_message is None
         assert response.callers is not None
-        
+
         # Should have 3 internal callers:
         # 1. ChildContract.childFunction(address) (declared)
         # 2. GrandchildContract.childFunction(address) (inherited, also calls it)
         # 3. GrandchildContract.grandchildFunction() (declared)
         assert len(response.callers.internal_callers) == 3
-        
+
         # Verify the callers
         caller_sigs = {(c.contract_name, c.signature) for c in response.callers.internal_callers}
         assert ("ChildContract", "childFunction(address)") in caller_sigs
         assert ("GrandchildContract", "childFunction(address)") in caller_sigs
         assert ("GrandchildContract", "grandchildFunction()") in caller_sigs
-        
+
         assert len(response.callers.external_callers) == 0
         assert len(response.callers.library_callers) == 0
 
@@ -368,15 +369,15 @@ class TestListFunctionCallersHappyPath:
         assert response.success is True
         assert response.error_message is None
         assert response.callers is not None
-        
+
         # Should have 2 external callers from GrandchildContract
         assert len(response.callers.external_callers) == 2
-        
+
         # Verify the callers
         caller_sigs = {(c.contract_name, c.signature) for c in response.callers.external_callers}
         assert ("GrandchildContract", "grandchildFunction()") in caller_sigs
         assert ("GrandchildContract", "anotherFunction()") in caller_sigs
-        
+
         assert len(response.callers.internal_callers) == 0
         assert len(response.callers.library_callers) == 0
 
@@ -393,14 +394,14 @@ class TestListFunctionCallersHappyPath:
         assert response.success is True
         assert response.error_message is None
         assert response.callers is not None
-        
+
         # Should have 1 library caller from GrandchildContract.grandchildFunction()
         assert len(response.callers.library_callers) == 1
-        
+
         caller = response.callers.library_callers[0]
         assert caller.contract_name == "GrandchildContract"
         assert caller.signature == "grandchildFunction()"
-        
+
         assert len(response.callers.internal_callers) == 0
         assert len(response.callers.external_callers) == 0
 
@@ -417,14 +418,32 @@ class TestListFunctionCallersHappyPath:
 
         assert response.success is True
         assert response.callers is not None
-        
+
         # Should have internal callers but no external or library
         assert len(response.callers.internal_callers) >= 1
         assert len(response.callers.external_callers) == 0
         assert len(response.callers.library_callers) == 0
 
     def test_query_context_is_populated(self, test_path, project_facts_with_callers):
-        """Test that query context is properly populated in response."""
+        """Test that query context is properly populated when include_query_context=True."""
+        function_key = FunctionKey(
+            signature="baseFunction()",
+            contract_name="BaseContract",
+            path="contracts/Base.sol",
+        )
+        request = FunctionCallersRequest(
+            path=test_path, function_key=function_key, include_query_context=True
+        )
+        response = list_function_callers(request, project_facts_with_callers)
+
+        assert response.success is True
+        assert response.query_context is not None
+        assert response.query_context.searched_calling_context is not None
+        assert response.query_context.searched_function is not None
+        assert "BaseContract.baseFunction()" in response.query_context.searched_function
+
+    def test_query_context_omitted_by_default(self, test_path, project_facts_with_callers):
+        """Test that query context is omitted by default (include_query_context=False)."""
         function_key = FunctionKey(
             signature="baseFunction()",
             contract_name="BaseContract",
@@ -434,10 +453,8 @@ class TestListFunctionCallersHappyPath:
         response = list_function_callers(request, project_facts_with_callers)
 
         assert response.success is True
-        assert response.query_context is not None
-        assert response.query_context.searched_calling_context is not None
-        assert response.query_context.searched_function is not None
-        assert "BaseContract.baseFunction()" in response.query_context.searched_function
+        assert response.query_context is None
+        assert response.callers is not None
 
 
 class TestListFunctionCallersErrorCases:
@@ -523,13 +540,11 @@ class TestListFunctionCallersEdgeCases:
     def test_function_with_complex_signature(self, test_path, project_facts):
         """Test function with complex type signature."""
         complex_contract_key = ContractKey(
-            contract_name="ComplexContract",
-            path="contracts/Complex.sol"
+            contract_name="ComplexContract", path="contracts/Complex.sol"
         )
 
         caller_contract_key = ContractKey(
-            contract_name="CallerContract",
-            path="contracts/Caller.sol"
+            contract_name="CallerContract", path="contracts/Caller.sol"
         )
 
         # Create a complex function
@@ -591,7 +606,9 @@ class TestListFunctionCallersEdgeCases:
                     line_end=15,
                     callees=FunctionCallees(
                         internal_callees=[],
-                        external_callees=["ComplexContract.complexFunction(uint256[],address,(uint256,bool))"],
+                        external_callees=[
+                            "ComplexContract.complexFunction(uint256[],address,(uint256,bool))"
+                        ],
                         library_callees=[],
                         has_low_level_calls=False,
                     ),
@@ -635,13 +652,12 @@ class TestListFunctionCallersEdgeCases:
 
         assert response.success is True
         assert response.callers is not None
-        
+
         # Count occurrences of each caller
         internal_caller_keys = [
-            (c.contract_name, c.signature) 
-            for c in response.callers.internal_callers
+            (c.contract_name, c.signature) for c in response.callers.internal_callers
         ]
-        
+
         # Each unique caller should appear only once
         assert len(internal_caller_keys) == len(set(internal_caller_keys))
 
@@ -660,4 +676,3 @@ class TestListFunctionCallersEdgeCases:
         assert response.success is True
         assert response.callers is not None
         assert len(response.callers.external_callers) >= 1
-

@@ -1,6 +1,5 @@
 """Tests for list_contracts tool."""
 
-import pytest
 from slither_mcp.tools.list_contracts import (
     ListContractsRequest,
     list_contracts,
@@ -194,4 +193,3 @@ class TestListContractsEdgeCases:
         assert child.is_interface is False
         assert child.is_library is False
         assert child.is_fully_implemented is True
-

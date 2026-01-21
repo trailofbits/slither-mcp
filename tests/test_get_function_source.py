@@ -1,7 +1,7 @@
 """Tests for get_function_source tool."""
 
-import pytest
 from unittest.mock import mock_open, patch
+
 from slither_mcp.tools.get_function_source import (
     GetFunctionSourceRequest,
     get_function_source,
@@ -35,12 +35,10 @@ abstract contract BaseContract {
 }
 """
         function_key = FunctionKey(
-            signature="initialize()",
-            contract_name="BaseContract",
-            path="contracts/Base.sol"
+            signature="initialize()", contract_name="BaseContract", path="contracts/Base.sol"
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_function_source(request, project_facts)
@@ -72,10 +70,10 @@ interface InterfaceA {
         function_key = FunctionKey(
             signature="interfaceMethod()",
             contract_name="InterfaceA",
-            path="contracts/IInterface.sol"
+            path="contracts/IInterface.sol",
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_function_source(request, project_facts)
@@ -87,7 +85,9 @@ interface InterfaceA {
         assert response.line_end == 5
         assert response.source_code == "    function interfaceMethod() external;\n"
 
-    def test_get_multi_line_function_with_params(self, test_path, project_facts, standalone_contract_key):
+    def test_get_multi_line_function_with_params(
+        self, test_path, project_facts, standalone_contract_key
+    ):
         """Test getting source code for a multi-line function with parameters."""
         mock_source = """// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
@@ -118,10 +118,10 @@ contract StandaloneContract {
         function_key = FunctionKey(
             signature="standaloneFunction(uint256,address)",
             contract_name="StandaloneContract",
-            path="contracts/Standalone.sol"
+            path="contracts/Standalone.sol",
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_function_source(request, project_facts)
@@ -158,12 +158,10 @@ library LibraryB {
 }
 """
         function_key = FunctionKey(
-            signature="add(uint256,uint256)",
-            contract_name="LibraryB",
-            path="contracts/Library.sol"
+            signature="add(uint256,uint256)", contract_name="LibraryB", path="contracts/Library.sol"
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_function_source(request, project_facts)
@@ -180,7 +178,9 @@ library LibraryB {
 """
         assert response.source_code == expected_code
 
-    def test_get_child_contract_declared_function(self, test_path, project_facts, child_contract_key):
+    def test_get_child_contract_declared_function(
+        self, test_path, project_facts, child_contract_key
+    ):
         """Test getting source code for a function declared in a child contract."""
         mock_source = """// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
@@ -207,10 +207,10 @@ contract ChildContract is BaseContract {
         function_key = FunctionKey(
             signature="childFunction(address)",
             contract_name="ChildContract",
-            path="contracts/Child.sol"
+            path="contracts/Child.sol",
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_function_source(request, project_facts)
@@ -258,12 +258,10 @@ abstract contract BaseContract {
 """
         # Request baseFunction from the base contract
         function_key = FunctionKey(
-            signature="baseFunction()",
-            contract_name="BaseContract",
-            path="contracts/Base.sol"
+            signature="baseFunction()", contract_name="BaseContract", path="contracts/Base.sol"
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_function_source(request, project_facts)
@@ -290,45 +288,45 @@ class TestGetFunctionSourceEdgeCases:
         function_key = FunctionKey(
             signature="nonExistent()",
             contract_name="NonExistentContract",
-            path="contracts/NonExistent.sol"
+            path="contracts/NonExistent.sol",
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
         response = get_function_source(request, project_facts)
 
         assert response.success is False
         assert response.error_message is not None
-        assert "does not exist" in response.error_message
+        assert "Contract not found" in response.error_message
         assert response.source_code is None
 
-    def test_function_not_found_invalid_signature(self, test_path, project_facts, base_contract_key):
+    def test_function_not_found_invalid_signature(
+        self, test_path, project_facts, base_contract_key
+    ):
         """Test getting source for a non-existent function in a valid contract."""
         function_key = FunctionKey(
             signature="nonExistentFunction()",
             contract_name="BaseContract",
-            path="contracts/Base.sol"
+            path="contracts/Base.sol",
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
         response = get_function_source(request, project_facts)
 
         assert response.success is False
         assert response.error_message is not None
-        assert "not implemented" in response.error_message
+        assert "not found" in response.error_message
         assert response.source_code is None
 
     def test_source_file_not_found(self, test_path, project_facts, base_contract_key):
         """Test error when source file doesn't exist."""
         function_key = FunctionKey(
-            signature="initialize()",
-            contract_name="BaseContract",
-            path="contracts/Base.sol"
+            signature="initialize()", contract_name="BaseContract", path="contracts/Base.sol"
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         # Mock os.path.exists to return True for project dir, False for source file
         def mock_exists(path):
             # Return True for project directory, False for source file
             return path == test_path
-        
+
         with patch("os.path.exists", side_effect=mock_exists):
             response = get_function_source(request, project_facts)
 
@@ -341,14 +339,12 @@ class TestGetFunctionSourceEdgeCases:
     def test_file_read_error(self, test_path, project_facts, base_contract_key):
         """Test error handling when file cannot be read."""
         function_key = FunctionKey(
-            signature="initialize()",
-            contract_name="BaseContract",
-            path="contracts/Base.sol"
+            signature="initialize()", contract_name="BaseContract", path="contracts/Base.sol"
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("os.path.exists", return_value=True):
-            with patch("builtins.open", side_effect=IOError("Permission denied")):
+            with patch("builtins.open", side_effect=OSError("Permission denied")):
                 response = get_function_source(request, project_facts)
 
         assert response.success is False
@@ -364,12 +360,10 @@ pragma solidity ^0.8.0;
 // This file only has 5 lines
 """
         function_key = FunctionKey(
-            signature="initialize()",
-            contract_name="BaseContract",
-            path="contracts/Base.sol"
+            signature="initialize()", contract_name="BaseContract", path="contracts/Base.sol"
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         # Function model says lines 10-15, but file only has 5 lines
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
@@ -384,9 +378,7 @@ pragma solidity ^0.8.0;
     def test_empty_project(self, test_path, empty_project_facts):
         """Test getting source from an empty project."""
         function_key = FunctionKey(
-            signature="someFunction()",
-            contract_name="SomeContract",
-            path="contracts/Some.sol"
+            signature="someFunction()", contract_name="SomeContract", path="contracts/Some.sol"
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
         response = get_function_source(request, empty_project_facts)
@@ -398,9 +390,7 @@ pragma solidity ^0.8.0;
     def test_contract_with_no_functions(self, test_path, project_facts, empty_contract_key):
         """Test getting source for a function in a contract with no functions."""
         function_key = FunctionKey(
-            signature="someFunction()",
-            contract_name="EmptyContract",
-            path="contracts/Empty.sol"
+            signature="someFunction()", contract_name="EmptyContract", path="contracts/Empty.sol"
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
         response = get_function_source(request, project_facts)
@@ -434,10 +424,10 @@ contract GrandchildContract is ChildContract {
         function_key = FunctionKey(
             signature="grandchildFunction()",
             contract_name="GrandchildContract",
-            path="contracts/Grandchild.sol"
+            path="contracts/Grandchild.sol",
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_function_source(request, project_facts)
@@ -478,10 +468,10 @@ contract MultiInheritContract is BaseContract, InterfaceA {
         function_key = FunctionKey(
             signature="interfaceMethod()",
             contract_name="MultiInheritContract",
-            path="contracts/Multi.sol"
+            path="contracts/Multi.sol",
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_function_source(request, project_facts)
@@ -522,10 +512,10 @@ contract MultiInheritContract is BaseContract, InterfaceA {
         function_key = FunctionKey(
             signature="multiFunction()",
             contract_name="MultiInheritContract",
-            path="contracts/Multi.sol"
+            path="contracts/Multi.sol",
         )
         request = GetFunctionSourceRequest(path=test_path, function_key=function_key)
-        
+
         with patch("builtins.open", mock_open(read_data=mock_source)):
             with patch("os.path.exists", return_value=True):
                 response = get_function_source(request, project_facts)
@@ -541,4 +531,3 @@ contract MultiInheritContract is BaseContract, InterfaceA {
     }
 """
         assert response.source_code == expected_code
-

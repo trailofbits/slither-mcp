@@ -1,13 +1,90 @@
 """Type definitions for Slither MCP server."""
 
+import hashlib
 import json
-from typing import Any, Annotated, List
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+import os
+from typing import Annotated, Any, TypeAlias
 
-try:
-    from typing import TypeAlias
-except ImportError:
-    from typing_extensions import TypeAlias
+from pydantic import BaseModel, Field, model_validator
+
+# Cache schema version - increment when ProjectFacts structure changes
+CACHE_SCHEMA_VERSION = "1.1.0"
+
+
+class SlitherMCPError(Exception):
+    """Base exception for Slither MCP errors."""
+
+    pass
+
+
+class PathTraversalError(SlitherMCPError):
+    """Raised when a path traversal attempt is detected."""
+
+    pass
+
+
+class CacheCorruptionError(SlitherMCPError):
+    """Raised when the cache file is corrupted or invalid."""
+
+    pass
+
+
+class SlitherAnalysisError(SlitherMCPError):
+    """Raised when Slither analysis fails."""
+
+    pass
+
+
+class AnalysisTimeoutError(SlitherMCPError):
+    """Raised when analysis exceeds the timeout limit."""
+
+    pass
+
+
+def validate_path_within_project(project_path: str, relative_path: str) -> str:
+    """
+    Validate that a relative path stays within the project directory.
+
+    This prevents path traversal attacks where an attacker could use paths
+    like '../../../etc/passwd' to escape the project directory.
+
+    Args:
+        project_path: Absolute path to the project root directory
+        relative_path: Relative path to validate (e.g., 'src/Contract.sol')
+
+    Returns:
+        The normalized absolute path if valid
+
+    Raises:
+        PathTraversalError: If the path would escape the project directory
+    """
+    # Normalize project path to absolute
+    project_abs = os.path.abspath(project_path)
+
+    # Join and normalize the full path
+    full_path = os.path.normpath(os.path.join(project_abs, relative_path))
+
+    # Check if the full path is still within the project directory
+    # Use commonpath to handle edge cases properly
+    try:
+        common = os.path.commonpath([project_abs, full_path])
+        if common != project_abs:
+            raise PathTraversalError(
+                f"Path traversal detected: '{relative_path}' escapes project directory"
+            )
+    except ValueError as e:
+        # commonpath raises ValueError if paths are on different drives (Windows)
+        raise PathTraversalError(
+            f"Path traversal detected: '{relative_path}' is on a different drive"
+        ) from e
+
+    return full_path
+
+
+def compute_content_checksum(content: str) -> str:
+    """Compute SHA-256 checksum of content for cache validation."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
 
 contractName: TypeAlias = str
 ExtFuncSig: TypeAlias = str
@@ -18,26 +95,26 @@ solidityType: TypeAlias = str
 class JSONStringTolerantModel(BaseModel):
     """
     Base model that handles JSON string deserialization for MCP compatibility.
-    
+
     Some MCP clients (like Cursor/Claude Desktop) may send nested objects as
     JSON strings instead of parsed dictionaries. This base class automatically
     detects and parses such strings before Pydantic validation occurs.
-    
+
     Usage:
         class MyRequest(JSONStringTolerantModel):
             nested_field: SomeModel
-    
+
     This will accept both:
         - {"nested_field": {"key": "value"}}  # Normal dict
         - {"nested_field": '{"key": "value"}'}  # JSON string (auto-parsed)
     """
-    
-    @model_validator(mode='before')
+
+    @model_validator(mode="before")
     @classmethod
     def parse_json_strings(cls, data: Any) -> Any:
         """
         Recursively parse any JSON strings in the input data.
-        
+
         This validator runs before Pydantic's normal validation, allowing us to
         convert JSON strings into dicts/lists that Pydantic can then validate
         against the model schema.
@@ -48,7 +125,7 @@ class JSONStringTolerantModel(BaseModel):
                 return json.loads(data)
             except (json.JSONDecodeError, TypeError):
                 return data
-        
+
         if isinstance(data, dict):
             # Check each field to see if it's a stringified JSON
             parsed = {}
@@ -58,7 +135,7 @@ class JSONStringTolerantModel(BaseModel):
                         parsed_value = json.loads(value)
                         # Only use parsed value if it's a dict/list
                         # (avoid parsing string values like "true" -> True)
-                        if isinstance(parsed_value, (dict, list)):
+                        if isinstance(parsed_value, dict | list):
                             parsed[key] = parsed_value
                         else:
                             parsed[key] = value
@@ -67,7 +144,7 @@ class JSONStringTolerantModel(BaseModel):
                 else:
                     parsed[key] = value
             return parsed
-        
+
         return data
 
 
@@ -78,16 +155,42 @@ class FunctionCallees(BaseModel):
     external_callees: Annotated[
         list[ExtFuncSig], Field(description="The external functions called")
     ]
-    library_callees: Annotated[
-        list[ExtFuncSig], Field(description="The library functions called")
-    ]
+    library_callees: Annotated[list[ExtFuncSig], Field(description="The library functions called")]
     has_low_level_calls: Annotated[
         bool, Field(description="Whether there are any low-level calls present")
     ]
 
 
+class StateVariableModel(BaseModel):
+    """Model for a state variable in a contract."""
+
+    name: Annotated[str, Field(description="Name of the state variable")]
+    type_str: Annotated[str, Field(description="Type of the variable as a string")]
+    visibility: Annotated[str, Field(description="Visibility: public, internal, private")]
+    is_constant: Annotated[bool, Field(description="Whether the variable is constant")]
+    is_immutable: Annotated[bool, Field(description="Whether the variable is immutable")]
+    line_number: Annotated[int | None, Field(description="Line number where declared")] = None
+
+
+class EventParameter(BaseModel):
+    """Model for an event parameter."""
+
+    name: Annotated[str, Field(description="Parameter name")]
+    type_str: Annotated[str, Field(description="Parameter type as a string")]
+    indexed: Annotated[bool, Field(description="Whether the parameter is indexed")]
+
+
+class EventModel(BaseModel):
+    """Model for an event in a contract."""
+
+    name: Annotated[str, Field(description="Name of the event")]
+    parameters: Annotated[list[EventParameter], Field(description="Event parameters")]
+    line_number: Annotated[int | None, Field(description="Line number where declared")] = None
+
+
 class SourceLocation(BaseModel):
     """Location in source code where a detector finding occurs."""
+
     file_path: Annotated[str, Field(description="Path to the source file")]
     start_line: Annotated[int, Field(description="Starting line number")]
     end_line: Annotated[int, Field(description="Ending line number")]
@@ -95,22 +198,27 @@ class SourceLocation(BaseModel):
 
 class DetectorMetadata(BaseModel):
     """Metadata about a Slither detector."""
+
     name: Annotated[str, Field(description="Detector identifier (e.g., 'reentrancy-eth')")]
-    description: Annotated[str, Field(description="Human-readable description of what the detector checks")]
+    description: Annotated[
+        str, Field(description="Human-readable description of what the detector checks")
+    ]
     impact: Annotated[str, Field(description="Impact level: High, Medium, Low, or Informational")]
     confidence: Annotated[str, Field(description="Confidence level: High, Medium, or Low")]
 
 
 class DetectorResult(BaseModel):
     """Result from running a Slither detector."""
-    detector_name: Annotated[str, Field(description="Name of the detector that produced this result")]
+
+    detector_name: Annotated[
+        str, Field(description="Name of the detector that produced this result")
+    ]
     check: Annotated[str, Field(description="Description of what was checked")]
     impact: Annotated[str, Field(description="Impact level of this finding")]
     confidence: Annotated[str, Field(description="Confidence level of this finding")]
     description: Annotated[str, Field(description="Detailed description of the finding")]
     source_locations: Annotated[
-        list[SourceLocation],
-        Field(description="Source code locations related to this finding")
+        list[SourceLocation], Field(description="Source code locations related to this finding")
     ]
 
 
@@ -149,8 +257,15 @@ class ContractKey(BaseModel):
 class FunctionKey(BaseModel):
     # Note: We implement __hash__ manually instead of using frozen=True
     # to avoid JSON schema generation issues with some MCP clients
-    signature: Annotated[str, Field(description="The function's signature. e.g: transferFrom(address,address,uint256). DO NOT include the function's visibility or return type. Running keccak(signature) MUST return the function's ABI selector.")]
-    contract_name: Annotated[str, Field(description="The name of the contract the function is implemented in")]
+    signature: Annotated[
+        str,
+        Field(
+            description="The function's signature. e.g: transferFrom(address,address,uint256). DO NOT include the function's visibility or return type. Running keccak(signature) MUST return the function's ABI selector."
+        ),
+    ]
+    contract_name: Annotated[
+        str, Field(description="The name of the contract the function is implemented in")
+    ]
     path: Annotated[
         str,
         Field(
@@ -171,8 +286,8 @@ class FunctionKey(BaseModel):
         )
 
     def __str__(self):
-        cleanPath = self.path.replace("/", "-")
-        return f"{self.contract_name}.{self.signature}@{cleanPath}"
+        clean_path = self.path.replace("/", "-")
+        return f"{self.contract_name}.{self.signature}@{clean_path}"
 
     @classmethod
     def from_string(cls, s: str) -> "FunctionKey":
@@ -209,40 +324,24 @@ class FunctionModel(BaseModel):
     function_modifiers: Annotated[
         list[str], Field(description="The custom modifiers decorating the function")
     ]
-    arguments: Annotated[
-        list[str], Field(description="The types accepted as arguments")
-    ]
-    returns: Annotated[
-        list[str], Field(description="The types returned by the function")
-    ]
+    arguments: Annotated[list[str], Field(description="The types accepted as arguments")]
+    returns: Annotated[list[str], Field(description="The types returned by the function")]
 
-    path: Annotated[
-        str, Field(description="The full path to the file the function is defined")
-    ]
-    line_start: Annotated[
-        int, Field(description="The first line the function is defined on")
-    ]
-    line_end: Annotated[
-        int, Field(description="The last line the function is defined on")
-    ]
-    callees: Annotated[
-        FunctionCallees, Field(description="The functions called by this function")
-    ]
+    path: Annotated[str, Field(description="The full path to the file the function is defined")]
+    line_start: Annotated[int, Field(description="The first line the function is defined on")]
+    line_end: Annotated[int, Field(description="The last line the function is defined on")]
+    callees: Annotated[FunctionCallees, Field(description="The functions called by this function")]
 
 
 class ContractModel(BaseModel):
     name: Annotated[contractName, Field(description="The name of the contract")]
     key: ContractKey
-    path: Annotated[
-        str, Field(description="The full path to the file the contract is located in")
-    ]
+    path: Annotated[str, Field(description="The full path to the file the contract is located in")]
     is_abstract: Annotated[bool, Field(description="Whether the contract is abstract")]
     is_fully_implemented: Annotated[
         bool, Field(description="Whether the contract is fully implemented")
     ]
-    is_interface: Annotated[
-        bool, Field(description="Whether the contract is an interface")
-    ]
+    is_interface: Annotated[bool, Field(description="Whether the contract is an interface")]
     is_library: Annotated[bool, Field(description="Whether the contract is a library")]
     directly_inherits: Annotated[
         list[ContractKey],
@@ -261,6 +360,14 @@ class ContractModel(BaseModel):
         dict[FuncSig, FunctionModel],
         Field(description="The functions inherited by this contract"),
     ]
+    state_variables: Annotated[
+        list[StateVariableModel],
+        Field(description="State variables declared by this contract"),
+    ] = []
+    events: Annotated[
+        list[EventModel],
+        Field(description="Events declared by this contract"),
+    ] = []
 
     def does_contract_contain_function(self, sig: FuncSig) -> bool:
         if sig in self.functions_declared:
@@ -284,7 +391,7 @@ class ContractModel(BaseModel):
                 return contract
         raise ValueError(f"Contract '{function_contract_name}' not found in scopes")
 
-    def get_full_inheritance(self, facts: "ProjectFacts") -> List[ContractKey]:
+    def get_full_inheritance(self, facts: "ProjectFacts") -> list[ContractKey]:
         inherited_contracts = set()
         for key in self.directly_inherits:
             model = facts.contracts[key]
@@ -301,20 +408,14 @@ class ProjectFacts(BaseModel):
     project_dir: str
     detector_results: Annotated[
         dict[str, list[DetectorResult]],
-        Field(
-            default_factory=dict,
-            description="Mapping of detector name to list of findings from that detector"
-        )
-    ]
+        Field(description="Mapping of detector name to list of findings from that detector"),
+    ] = {}
     available_detectors: Annotated[
         list[DetectorMetadata],
-        Field(
-            default_factory=list,
-            description="List of all available Slither detectors with their metadata"
-        )
-    ]
+        Field(description="List of all available Slither detectors with their metadata"),
+    ] = []
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def convert_string_keys_to_contract_keys(cls, data: Any) -> Any:
         """Convert string keys back to ContractKey objects during deserialization."""
@@ -357,16 +458,17 @@ class ProjectFacts(BaseModel):
     ) -> list["ContractModel"]:
         """
         Find all contracts that implement a given function signature.
-        
+
         This is used to find implementations of abstract functions or interface methods.
-        
+
         Args:
             contract_model: The parent contract (abstract or interface)
             signature: The function signature to find implementations for
-            
+
         Returns:
             List of ContractModels that implement the function
         """
+
         def get_contracts_implementing_function(
             parent_contract: "ContractModel", f: FuncSig
         ) -> list["ContractModel"]:
@@ -400,16 +502,16 @@ class ProjectFacts(BaseModel):
     ]:
         """
         Resolve a function using a FunctionKey.
-        
+
         Args:
             function_key: The FunctionKey identifying the function
-            
+
         Returns:
             Tuple of (QueryContext, ContractModel, FunctionModel, error_message)
         """
         # Get the contract key from the function key
         contract_key = function_key.get_context()
-        
+
         # Check if contract exists
         contract_model = self.contracts.get(contract_key)
         if not contract_model:
@@ -420,9 +522,12 @@ class ProjectFacts(BaseModel):
                 ),
                 None,
                 None,
-                f"The specified contract does not exist: '{function_key.contract_name}' at '{function_key.path}'",
+                (
+                    f"Contract not found: '{function_key.contract_name}' at '{function_key.path}'. "
+                    f"Use search_contracts or list_contracts to find available contracts."
+                ),
             )
-        
+
         # Check if function exists in contract
         func_sig = function_key.signature
         qc = QueryContext(
@@ -430,15 +535,19 @@ class ProjectFacts(BaseModel):
             searched_function=f"{function_key.contract_name}.{function_key.signature}",
             searched_contract=contract_key.contract_name,
         )
-        
+
         if not contract_model.does_contract_contain_function(func_sig):
             return (
                 qc,
                 None,
                 None,
-                f"The specified function '{func_sig}' is not implemented by the contract: '{contract_key.contract_name}'",
+                (
+                    f"Function '{func_sig}' not found in contract '{contract_key.contract_name}'. "
+                    f"Use list_functions with this contract_key to see available functions, "
+                    f"or search_functions to find functions by pattern."
+                ),
             )
-        
+
         # Return the function model
         if func_sig in contract_model.functions_declared:
             return (
@@ -465,11 +574,11 @@ class ProjectFacts(BaseModel):
     ]:
         """
         Resolve a function signature in a given calling context.
-        
+
         Args:
             ext_signature: External function signature (e.g., 'ContractName.functionName(args)')
             calling_context: The contract context from which the function is called
-            
+
         Returns:
             Tuple of (QueryContext, ContractModel, FunctionModel, error_message)
         """
@@ -489,7 +598,10 @@ class ProjectFacts(BaseModel):
                 QueryContext(searched_calling_context=str(calling_context)),
                 None,
                 None,
-                f"The specified calling context does not exist. '{calling_context.contract_name}'",
+                (
+                    f"Contract not found: '{calling_context.contract_name}' at '{calling_context.path}'. "
+                    f"Use search_contracts or list_contracts to find available contracts."
+                ),
             )
 
         # Check context for contract
@@ -502,7 +614,10 @@ class ProjectFacts(BaseModel):
                 ),
                 None,
                 None,
-                f"The specified contract '{function_contract_name}' is not within the calling context: '{calling_context.contract_name}'",
+                (
+                    f"Contract '{function_contract_name}' is not in scope for '{calling_context.contract_name}'. "
+                    f"Use get_contract to check the 'scopes' field for available contracts in context."
+                ),
             )
 
         # Check contract for function
@@ -520,7 +635,11 @@ class ProjectFacts(BaseModel):
                 qc,
                 None,
                 None,
-                f"The specified function '{func_sig}' is not implemented by the contract: '{target_contractkey.contract_name}'",
+                (
+                    f"Function '{func_sig}' not found in contract '{target_contractkey.contract_name}'. "
+                    f"Use list_functions with this contract_key to see available functions, "
+                    f"or search_functions to find functions by pattern."
+                ),
             )
 
         if func_sig in target_contract_model.functions_declared:
@@ -561,4 +680,3 @@ def ext_func_sig_to_func_sig(signature: ExtFuncSig) -> FuncSig:
 def get_contract_from_ext_func_sig(signature: ExtFuncSig) -> str:
     """Extract contract name from external function signature."""
     return signature.split(".")[0]
-
