@@ -17,3 +17,6 @@ SPECIAL_FUNCTION_NAMES = frozenset(
 
 # Test function prefix (Foundry convention)
 TEST_FUNCTION_PREFIX = "test"
+
+# Slither internal function prefix (generated functions)
+SLITHER_INTERNAL_PREFIX = "slither"

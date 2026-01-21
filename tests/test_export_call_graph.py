@@ -323,3 +323,196 @@ def test_export_call_graph_dot_edge_styles(call_graph_project_facts: ProjectFact
     # DOT styles
     assert "[style=dashed]" in response.graph  # external calls
     assert "[style=bold]" in response.graph  # library calls
+
+
+@pytest.fixture
+def highly_connected_project_facts():
+    """Project with varying connectivity for testing degree-based node selection."""
+    # Create a graph where some nodes are highly connected and others are isolated
+
+    contract_key = ContractKey(contract_name="TestContract", path="contracts/Test.sol")
+
+    # Hub function calls multiple functions
+    hub_callees = FunctionCallees(
+        internal_callees=[
+            "TestContract.spoke1()",
+            "TestContract.spoke2()",
+            "TestContract.spoke3()",
+        ],
+        external_callees=[],
+        library_callees=[],
+        has_low_level_calls=False,
+    )
+
+    # Spokes call each other to form a connected core
+    spoke1_callees = FunctionCallees(
+        internal_callees=["TestContract.spoke2()"],
+        external_callees=[],
+        library_callees=[],
+        has_low_level_calls=False,
+    )
+
+    spoke2_callees = FunctionCallees(
+        internal_callees=["TestContract.spoke3()"],
+        external_callees=[],
+        library_callees=[],
+        has_low_level_calls=False,
+    )
+
+    empty_callees = FunctionCallees(
+        internal_callees=[],
+        external_callees=[],
+        library_callees=[],
+        has_low_level_calls=False,
+    )
+
+    contract = ContractModel(
+        name="TestContract",
+        key=contract_key,
+        path="contracts/Test.sol",
+        is_abstract=False,
+        is_fully_implemented=True,
+        is_interface=False,
+        is_library=False,
+        directly_inherits=[],
+        scopes=[contract_key],
+        functions_declared={
+            "hub()": FunctionModel(
+                signature="hub()",
+                implementation_contract=contract_key,
+                solidity_modifiers=["public"],
+                visibility="public",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="contracts/Test.sol",
+                line_start=5,
+                line_end=10,
+                callees=hub_callees,
+            ),
+            "spoke1()": FunctionModel(
+                signature="spoke1()",
+                implementation_contract=contract_key,
+                solidity_modifiers=["internal"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="contracts/Test.sol",
+                line_start=12,
+                line_end=15,
+                callees=spoke1_callees,
+            ),
+            "spoke2()": FunctionModel(
+                signature="spoke2()",
+                implementation_contract=contract_key,
+                solidity_modifiers=["internal"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="contracts/Test.sol",
+                line_start=17,
+                line_end=20,
+                callees=spoke2_callees,
+            ),
+            "spoke3()": FunctionModel(
+                signature="spoke3()",
+                implementation_contract=contract_key,
+                solidity_modifiers=["internal"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="contracts/Test.sol",
+                line_start=22,
+                line_end=25,
+                callees=empty_callees,
+            ),
+            "isolated1()": FunctionModel(
+                signature="isolated1()",
+                implementation_contract=contract_key,
+                solidity_modifiers=["public"],
+                visibility="public",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="contracts/Test.sol",
+                line_start=27,
+                line_end=30,
+                callees=empty_callees,
+            ),
+            "isolated2()": FunctionModel(
+                signature="isolated2()",
+                implementation_contract=contract_key,
+                solidity_modifiers=["public"],
+                visibility="public",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="contracts/Test.sol",
+                line_start=32,
+                line_end=35,
+                callees=empty_callees,
+            ),
+        },
+        functions_inherited={},
+    )
+
+    return ProjectFacts(
+        contracts={contract_key: contract},
+        project_dir="/test/project",
+    )
+
+
+def test_export_call_graph_degree_based_selection(
+    highly_connected_project_facts: ProjectFacts, test_path: str
+):
+    """Test that truncation keeps highly connected nodes and produces connected graph."""
+    # Total nodes: hub, spoke1, spoke2, spoke3, isolated1, isolated2 = 6 nodes
+    # Edges: hub->spoke1, hub->spoke2, hub->spoke3, spoke1->spoke2, spoke2->spoke3 = 5 edges
+    # Degrees: hub=3, spoke1=2, spoke2=3, spoke3=2, isolated1=0, isolated2=0
+
+    # Request max_nodes=4, should keep hub, spoke1, spoke2, spoke3 (most connected)
+    request = ExportCallGraphRequest(
+        path=test_path,
+        format="mermaid",
+        max_nodes=4,
+    )
+    response = export_call_graph(request, highly_connected_project_facts)
+
+    assert response.success
+    assert response.truncated is True
+    assert response.node_count == 4
+
+    # Should have edges between the kept nodes (connected graph)
+    # The isolated nodes should be dropped
+    assert response.edge_count > 0, "Should have edges between highly connected nodes"
+
+    # Graph should contain the highly connected nodes
+    assert "hub" in response.graph
+    assert "spoke1" in response.graph or "spoke2" in response.graph
+
+    # Isolated nodes should not be in the graph (or less likely to be)
+    # This is a soft check since the algorithm prioritizes by degree
+
+
+def test_export_call_graph_truncation_preserves_connectivity(
+    highly_connected_project_facts: ProjectFacts, test_path: str
+):
+    """Test that truncation preserves graph connectivity by keeping connected nodes."""
+    # Request max_nodes=3, should keep the most connected nodes
+    request = ExportCallGraphRequest(
+        path=test_path,
+        format="mermaid",
+        max_nodes=3,
+    )
+    response = export_call_graph(request, highly_connected_project_facts)
+
+    assert response.success
+    assert response.truncated is True
+    assert response.node_count == 3
+
+    # Should have edges - degree-based selection keeps connected nodes
+    # Before fix: random selection could result in isolated nodes with 0 edges
+    assert response.edge_count > 0, "Degree-based selection should preserve edges"

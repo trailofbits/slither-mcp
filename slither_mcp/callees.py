@@ -32,9 +32,15 @@ def get_callees(function_contract) -> FunctionCallees:
         if isinstance(ec, HighLevelCall)
     ]
 
+    # Deduplicate: Slither may emit both HighLevelCall and LibraryCall for the same call.
+    # Library calls should not also appear in external calls.
+    internal_set = set(internal)
+    library_set = set(library)
+    external_set = set(external) - library_set  # Remove overlap with library calls
+
     return FunctionCallees(
-        internal_callees=list(set(internal)),
-        library_callees=list(set(library)),
-        external_callees=list(set(external)),
+        internal_callees=list(internal_set),
+        library_callees=list(library_set),
+        external_callees=list(external_set),
         has_low_level_calls=bool(function_contract.low_level_calls),
     )
