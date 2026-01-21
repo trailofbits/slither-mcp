@@ -370,11 +370,52 @@ class ContractModel(BaseModel):
     ] = []
 
     def does_contract_contain_function(self, sig: FuncSig) -> bool:
+        """Check if the contract contains a function with the given signature.
+
+        Uses normalized matching to handle qualified type names like
+        'IPoolManager.SwapParams' matching 'SwapParams'.
+        """
+        # Exact match first (fast path)
         if sig in self.functions_declared:
             return True
         if sig in self.functions_inherited:
             return True
+
+        # Try normalized matching (slow path)
+        normalized_sig = normalize_signature(sig)
+        for declared_sig in self.functions_declared:
+            if normalize_signature(declared_sig) == normalized_sig:
+                return True
+        for inherited_sig in self.functions_inherited:
+            if normalize_signature(inherited_sig) == normalized_sig:
+                return True
+
         return False
+
+    def find_function_signature(self, sig: FuncSig) -> str | None:
+        """Find the actual stored signature matching the given signature.
+
+        Uses normalized matching to handle qualified type names.
+
+        Returns:
+            The actual signature key if found, None otherwise.
+        """
+        # Exact match first (fast path)
+        if sig in self.functions_declared:
+            return sig
+        if sig in self.functions_inherited:
+            return sig
+
+        # Try normalized matching (slow path)
+        normalized_sig = normalize_signature(sig)
+        for declared_sig in self.functions_declared:
+            if normalize_signature(declared_sig) == normalized_sig:
+                return declared_sig
+        for inherited_sig in self.functions_inherited:
+            if normalize_signature(inherited_sig) == normalized_sig:
+                return inherited_sig
+
+        return None
 
     def is_contract_in_context(self, contract_name: str) -> bool:
         for scope in self.scopes:
@@ -528,7 +569,7 @@ class ProjectFacts(BaseModel):
                 ),
             )
 
-        # Check if function exists in contract
+        # Check if function exists in contract (with normalized matching)
         func_sig = function_key.signature
         qc = QueryContext(
             searched_calling_context=str(contract_key),
@@ -536,7 +577,9 @@ class ProjectFacts(BaseModel):
             searched_contract=contract_key.contract_name,
         )
 
-        if not contract_model.does_contract_contain_function(func_sig):
+        # Use normalized matching to find the actual signature
+        actual_sig = contract_model.find_function_signature(func_sig)
+        if actual_sig is None:
             return (
                 qc,
                 None,
@@ -548,19 +591,19 @@ class ProjectFacts(BaseModel):
                 ),
             )
 
-        # Return the function model
-        if func_sig in contract_model.functions_declared:
+        # Return the function model using the actual signature
+        if actual_sig in contract_model.functions_declared:
             return (
                 qc,
                 contract_model,
-                contract_model.functions_declared[func_sig],
+                contract_model.functions_declared[actual_sig],
                 None,
             )
         else:
             return (
                 qc,
                 contract_model,
-                contract_model.functions_inherited[func_sig],
+                contract_model.functions_inherited[actual_sig],
                 None,
             )
 
@@ -680,3 +723,73 @@ def ext_func_sig_to_func_sig(signature: ExtFuncSig) -> FuncSig:
 def get_contract_from_ext_func_sig(signature: ExtFuncSig) -> str:
     """Extract contract name from external function signature."""
     return signature.split(".")[0]
+
+
+def normalize_signature(sig: str) -> str:
+    """Normalize a function signature by removing type prefixes.
+
+    Converts signatures like 'swap(PoolKey,IPoolManager.SwapParams,bytes)'
+    to 'swap(PoolKey,SwapParams,bytes)' for flexible matching.
+
+    This handles the case where users specify qualified types
+    (e.g., Interface.Type) but Slither may store them differently.
+
+    Args:
+        sig: A function signature like 'transfer(address,uint256)' or
+             'swap(PoolKey,IPoolManager.SwapParams,bytes)'
+
+    Returns:
+        The normalized signature with type prefixes removed from parameters.
+        The function name itself is never modified.
+    """
+    if "(" not in sig:
+        return sig
+
+    name, rest = sig.split("(", 1)
+    params_str = rest.rstrip(")")
+
+    if not params_str:
+        return sig
+
+    # Normalize each parameter type by removing prefix before last '.'
+    normalized_params = []
+    for param in params_str.split(","):
+        param = param.strip()
+        # Handle array types like "IPoolManager.SwapParams[]"
+        suffix = ""
+        if param.endswith("[]"):
+            suffix = "[]"
+            param = param[:-2]
+        # Remove prefix like "IPoolManager." from "IPoolManager.SwapParams"
+        if "." in param:
+            param = param.split(".")[-1]
+        normalized_params.append(param + suffix)
+
+    return f"{name}({','.join(normalized_params)})"
+
+
+def find_matching_signature(
+    target_sig: str, available_signatures: dict[str, Any]
+) -> str | None:
+    """Find a matching signature using normalized comparison.
+
+    First tries exact match, then falls back to normalized matching.
+
+    Args:
+        target_sig: The signature to find
+        available_signatures: Dict of signature -> value to search
+
+    Returns:
+        The actual signature key if found, None otherwise
+    """
+    # Fast path: exact match
+    if target_sig in available_signatures:
+        return target_sig
+
+    # Slow path: try normalized matching
+    normalized_target = normalize_signature(target_sig)
+    for sig in available_signatures:
+        if normalize_signature(sig) == normalized_target:
+            return sig
+
+    return None

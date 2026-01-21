@@ -18,6 +18,13 @@ class RunDetectorsRequest(PaginatedRequest):
     detector_names: list[str] | None = None
     impact: list[str] | None = None
     confidence: list[str] | None = None
+    exclude_paths: Annotated[
+        list[str] | None,
+        Field(
+            description="Path prefixes to exclude from results "
+            "(e.g., ['lib/', 'test/', 'node_modules/'])"
+        ),
+    ] = None
 
 
 class RunDetectorsResponse(BaseModel):
@@ -72,6 +79,24 @@ def run_detectors(
         if request.confidence:
             confidence_lower = [c.lower() for c in request.confidence]
             all_results = [r for r in all_results if r.confidence.lower() in confidence_lower]
+
+        # Apply exclude_paths filter
+        # Exclude results where ALL source locations are in excluded paths
+        if request.exclude_paths:
+            filtered_results = []
+            for result in all_results:
+                # Keep result if it has no locations or has at least one location
+                # outside excluded paths
+                if not result.source_locations:
+                    filtered_results.append(result)
+                    continue
+                has_non_excluded_location = any(
+                    not any(loc.file_path.startswith(p) for p in request.exclude_paths)
+                    for loc in result.source_locations
+                )
+                if has_non_excluded_location:
+                    filtered_results.append(result)
+            all_results = filtered_results
 
         # Apply pagination
         all_results, total_count, has_more = apply_pagination(

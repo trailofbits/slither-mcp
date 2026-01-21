@@ -133,3 +133,64 @@ class TestSearchContractsValidation:
         """Test that invalid regex raises validation error."""
         with pytest.raises(ValueError, match="Invalid regex pattern"):
             SearchContractsRequest(path=test_path, pattern="[unclosed")
+
+
+class TestSearchContractsExcludePaths:
+    """Tests for exclude_paths parameter."""
+
+    def test_exclude_lib_path(self, project_facts_with_lib_and_test: ProjectFacts, test_path: str):
+        """Test excluding contracts in lib/ directory from search results."""
+        request = SearchContractsRequest(
+            path=test_path, pattern=".*", exclude_paths=["lib/"]
+        )
+        response = search_contracts(request, project_facts_with_lib_and_test)
+
+        assert response.success
+        contract_names = {m.contract_name for m in response.matches}
+        # LibDependency should be excluded
+        assert "LibDependency" not in contract_names
+        # Other contracts should still be present
+        assert "BaseContract" in contract_names
+
+    def test_exclude_test_path(self, project_facts_with_lib_and_test: ProjectFacts, test_path: str):
+        """Test excluding contracts in test/ directory from search results."""
+        request = SearchContractsRequest(
+            path=test_path, pattern=".*", exclude_paths=["test/"]
+        )
+        response = search_contracts(request, project_facts_with_lib_and_test)
+
+        assert response.success
+        contract_names = {m.contract_name for m in response.matches}
+        # TestHelper should be excluded
+        assert "TestHelper" not in contract_names
+        # Other contracts should still be present
+        assert "BaseContract" in contract_names
+
+    def test_exclude_multiple_paths(
+        self, project_facts_with_lib_and_test: ProjectFacts, test_path: str
+    ):
+        """Test excluding contracts from multiple directories."""
+        request = SearchContractsRequest(
+            path=test_path, pattern=".*", exclude_paths=["lib/", "test/"]
+        )
+        response = search_contracts(request, project_facts_with_lib_and_test)
+
+        assert response.success
+        contract_names = {m.contract_name for m in response.matches}
+        # Both should be excluded
+        assert "LibDependency" not in contract_names
+        assert "TestHelper" not in contract_names
+
+    def test_exclude_paths_with_pattern_match(
+        self, project_facts_with_lib_and_test: ProjectFacts, test_path: str
+    ):
+        """Test exclude_paths works with pattern matching."""
+        # Search for "Helper" which matches both TestHelper and potentially others
+        request = SearchContractsRequest(
+            path=test_path, pattern="Helper", exclude_paths=["test/"]
+        )
+        response = search_contracts(request, project_facts_with_lib_and_test)
+
+        assert response.success
+        # TestHelper should be excluded even though it matches the pattern
+        assert not any(m.contract_name == "TestHelper" for m in response.matches)

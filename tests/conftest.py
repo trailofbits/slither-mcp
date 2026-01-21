@@ -594,3 +594,160 @@ def project_facts_with_detectors(
         detector_results=detector_results_dict,
         available_detectors=detector_metadata_list,
     )
+
+
+# Fixtures for testing exclude_paths feature
+
+
+@pytest.fixture
+def lib_contract_key():
+    """ContractKey for a contract in lib/ directory."""
+    return ContractKey(contract_name="LibDependency", path="lib/dependency/src/Dependency.sol")
+
+
+@pytest.fixture
+def test_contract_key():
+    """ContractKey for a contract in test/ directory."""
+    return ContractKey(contract_name="TestHelper", path="test/helpers/TestHelper.sol")
+
+
+@pytest.fixture
+def lib_contract(lib_contract_key, empty_callees):
+    """Mock contract in lib/ directory."""
+    return ContractModel(
+        name="LibDependency",
+        key=lib_contract_key,
+        path="lib/dependency/src/Dependency.sol",
+        is_abstract=False,
+        is_fully_implemented=True,
+        is_interface=False,
+        is_library=True,
+        directly_inherits=[],
+        scopes=[lib_contract_key],
+        functions_declared={
+            "helperFunction()": FunctionModel(
+                signature="helperFunction()",
+                implementation_contract=lib_contract_key,
+                solidity_modifiers=["internal", "pure"],
+                visibility="internal",
+                function_modifiers=[],
+                arguments=[],
+                returns=["uint256"],
+                path="lib/dependency/src/Dependency.sol",
+                line_start=5,
+                line_end=8,
+                callees=empty_callees,
+            ),
+        },
+        functions_inherited={},
+    )
+
+
+@pytest.fixture
+def test_helper_contract(test_contract_key, empty_callees):
+    """Mock contract in test/ directory."""
+    return ContractModel(
+        name="TestHelper",
+        key=test_contract_key,
+        path="test/helpers/TestHelper.sol",
+        is_abstract=False,
+        is_fully_implemented=True,
+        is_interface=False,
+        is_library=False,
+        directly_inherits=[],
+        scopes=[test_contract_key],
+        functions_declared={
+            "setUp()": FunctionModel(
+                signature="setUp()",
+                implementation_contract=test_contract_key,
+                solidity_modifiers=["public"],
+                visibility="public",
+                function_modifiers=[],
+                arguments=[],
+                returns=[],
+                path="test/helpers/TestHelper.sol",
+                line_start=5,
+                line_end=10,
+                callees=empty_callees,
+            ),
+        },
+        functions_inherited={},
+    )
+
+
+@pytest.fixture
+def project_facts_with_lib_and_test(
+    project_facts,
+    lib_contract,
+    test_helper_contract,
+    lib_contract_key,
+    test_contract_key,
+):
+    """ProjectFacts with contracts in lib/ and test/ directories for exclude_paths testing."""
+    contracts = dict(project_facts.contracts)
+    contracts[lib_contract_key] = lib_contract
+    contracts[test_contract_key] = test_helper_contract
+    return ProjectFacts(
+        contracts=contracts,
+        project_dir="/test/project",
+        detector_results=project_facts.detector_results,
+        available_detectors=project_facts.available_detectors,
+    )
+
+
+@pytest.fixture
+def detector_results_with_test_findings():
+    """Detector results that include findings in test and lib directories."""
+    return {
+        "reentrancy-eth": [
+            DetectorResult(
+                detector_name="reentrancy-eth",
+                check="reentrancy-eth",
+                impact="High",
+                confidence="Medium",
+                description="Reentrancy in Contract.withdraw()",
+                source_locations=[
+                    SourceLocation(file_path="contracts/Contract.sol", start_line=5, end_line=10)
+                ],
+            )
+        ],
+        "uninitialized-storage": [
+            DetectorResult(
+                detector_name="uninitialized-storage",
+                check="uninitialized-storage",
+                impact="High",
+                confidence="High",
+                description="Test helper has uninitialized storage",
+                source_locations=[
+                    SourceLocation(file_path="test/helpers/TestHelper.sol", start_line=3, end_line=3)
+                ],
+            ),
+            DetectorResult(
+                detector_name="uninitialized-storage",
+                check="uninitialized-storage",
+                impact="High",
+                confidence="High",
+                description="Lib dependency has uninitialized storage",
+                source_locations=[
+                    SourceLocation(
+                        file_path="lib/dependency/src/Dependency.sol", start_line=2, end_line=2
+                    )
+                ],
+            ),
+        ],
+    }
+
+
+@pytest.fixture
+def project_facts_with_detector_findings_in_test(
+    project_facts_with_lib_and_test,
+    detector_results_with_test_findings,
+    detector_metadata_list,
+):
+    """ProjectFacts with detector findings in test/lib directories."""
+    return ProjectFacts(
+        contracts=project_facts_with_lib_and_test.contracts,
+        project_dir="/test/project",
+        detector_results=detector_results_with_test_findings,
+        available_detectors=detector_metadata_list,
+    )

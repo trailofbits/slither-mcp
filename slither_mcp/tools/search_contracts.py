@@ -19,6 +19,10 @@ class SearchContractsRequest(JSONStringTolerantModel):
     )
     limit: Annotated[int | None, Field(description="Maximum number of results to return")] = None
     offset: Annotated[int, Field(description="Number of results to skip for pagination")] = 0
+    exclude_paths: Annotated[
+        list[str] | None,
+        Field(description="Path prefixes to exclude (e.g., ['lib/', 'test/', 'node_modules/'])"),
+    ] = None
 
     @field_validator("pattern")
     @classmethod
@@ -76,6 +80,14 @@ def search_contracts(
         )
 
     matches = [key for key in project_facts.contracts.keys() if pattern.search(key.contract_name)]
+
+    # Apply exclude_paths filter
+    if request.exclude_paths:
+        matches = [
+            key
+            for key in matches
+            if not any(key.path.startswith(p) for p in request.exclude_paths)
+        ]
 
     matches, total_count, has_more = apply_pagination(matches, request.offset, request.limit)
 

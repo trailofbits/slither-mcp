@@ -36,6 +36,13 @@ class ExportCallGraphRequest(JSONStringTolerantModel):
         int,
         Field(description="Maximum number of nodes to include (prevents huge graphs)"),
     ] = DEFAULT_MAX_NODES
+    label_format: Annotated[
+        Literal["short", "full"],
+        Field(
+            description="Node label format: 'short' for Contract.func (default), "
+            "'full' for Contract.func(args)"
+        ),
+    ] = "short"
 
 
 class ExportCallGraphResponse(BaseModel):
@@ -75,21 +82,28 @@ def _sanitize_node_id(name: str) -> str:
     )
 
 
-def _format_function_label(contract_name: str, signature: str) -> str:
+def _format_function_label(
+    contract_name: str, signature: str, label_format: Literal["short", "full"] = "short"
+) -> str:
     """Format a function label for display in graph visualizations.
 
     Creates a human-readable label by combining the contract name with
-    just the function name (excluding parameter types for brevity).
+    the function name. The format can be either 'short' (just the name)
+    or 'full' (including parameter types).
 
     Args:
         contract_name: Name of the contract containing the function
         signature: Full function signature (e.g., 'transfer(address,uint256)')
+        label_format: 'short' for Contract.func, 'full' for Contract.func(args)
 
     Returns:
-        A display label like 'MyContract.transfer'
+        A display label like 'MyContract.transfer' or 'MyContract.transfer(address,uint256)'
     """
-    func_name = signature.split("(")[0]
-    return f"{contract_name}.{func_name}"
+    if label_format == "full":
+        return f"{contract_name}.{signature}"
+    else:
+        func_name = signature.split("(")[0]
+        return f"{contract_name}.{func_name}"
 
 
 def export_call_graph(
@@ -138,7 +152,9 @@ def export_call_graph(
 
                 # Create node for this function
                 node_id = _sanitize_node_id(f"{contract_key.contract_name}_{sig}")
-                label = _format_function_label(contract_key.contract_name, sig)
+                label = _format_function_label(
+                    contract_key.contract_name, sig, request.label_format
+                )
 
                 nodes.add(node_id)
                 node_labels[node_id] = label
@@ -149,7 +165,10 @@ def export_call_graph(
                     edges.append((node_id, callee_id, "internal"))
                     # Add callee as node if not already present
                     if callee_id not in node_labels:
-                        callee_label = callee.split("(")[0] if "(" in callee else callee
+                        if request.label_format == "full":
+                            callee_label = callee
+                        else:
+                            callee_label = callee.split("(")[0] if "(" in callee else callee
                         node_labels[callee_id] = callee_label
 
                 # Add edges for external callees if requested
@@ -158,7 +177,10 @@ def export_call_graph(
                         callee_id = _sanitize_node_id(callee.replace(".", "_"))
                         edges.append((node_id, callee_id, "external"))
                         if callee_id not in node_labels:
-                            callee_label = callee.split("(")[0] if "(" in callee else callee
+                            if request.label_format == "full":
+                                callee_label = callee
+                            else:
+                                callee_label = callee.split("(")[0] if "(" in callee else callee
                             node_labels[callee_id] = callee_label
 
                 # Add edges for library callees if requested
@@ -167,7 +189,10 @@ def export_call_graph(
                         callee_id = _sanitize_node_id(callee.replace(".", "_"))
                         edges.append((node_id, callee_id, "library"))
                         if callee_id not in node_labels:
-                            callee_label = callee.split("(")[0] if "(" in callee else callee
+                            if request.label_format == "full":
+                                callee_label = callee
+                            else:
+                                callee_label = callee.split("(")[0] if "(" in callee else callee
                             node_labels[callee_id] = callee_label
 
         # Add all callee nodes

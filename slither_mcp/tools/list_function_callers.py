@@ -9,6 +9,7 @@ from slither_mcp.types import (
     JSONStringTolerantModel,
     ProjectFacts,
     QueryContext,
+    normalize_signature,
 )
 
 
@@ -77,11 +78,19 @@ def list_function_callers(
     # Construct the target function's external signature format
     # This is the format used in FunctionCallees lists (e.g., "ContractName.signature()")
     target_ext_sig = f"{request.function_key.contract_name}.{request.function_key.signature}"
+    # Create normalized version for flexible matching
+    normalized_target = normalize_signature(target_ext_sig)
 
     # Use sets to avoid duplicates
     internal_callers_set: set[FunctionKey] = set()
     external_callers_set: set[FunctionKey] = set()
     library_callers_set: set[FunctionKey] = set()
+
+    def _matches_target(callee: str) -> bool:
+        """Check if a callee matches the target using normalized comparison."""
+        if callee == target_ext_sig:
+            return True
+        return normalize_signature(callee) == normalized_target
 
     # Loop through all contracts and their functions
     for contract_key, contract_model in project_facts.contracts.items():
@@ -94,14 +103,14 @@ def list_function_callers(
                 signature=func_sig, contract_name=contract_key.contract_name, path=contract_key.path
             )
 
-            # Check if target appears in this function's callees
-            if target_ext_sig in func_model.callees.internal_callees:
+            # Check if target appears in this function's callees (with normalized matching)
+            if any(_matches_target(c) for c in func_model.callees.internal_callees):
                 internal_callers_set.add(caller_key)
 
-            if target_ext_sig in func_model.callees.external_callees:
+            if any(_matches_target(c) for c in func_model.callees.external_callees):
                 external_callers_set.add(caller_key)
 
-            if target_ext_sig in func_model.callees.library_callees:
+            if any(_matches_target(c) for c in func_model.callees.library_callees):
                 library_callers_set.add(caller_key)
 
     # Convert sets to lists for response
