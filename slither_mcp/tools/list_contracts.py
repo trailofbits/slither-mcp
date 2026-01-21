@@ -37,6 +37,10 @@ class ListContractsRequest(PaginatedRequest):
         Literal["asc", "desc"],
         Field(description="Sort order: asc (ascending) or desc (descending)"),
     ] = "asc"
+    exclude_paths: Annotated[
+        list[str] | None,
+        Field(description="Path prefixes to exclude (e.g., ['lib/', 'test/', 'node_modules/'])"),
+    ] = None
 
 
 class ListContractsResponse(BaseModel):
@@ -67,6 +71,11 @@ def list_contracts(
     contracts = []
 
     for key, model in project_facts.contracts.items():
+        # Apply exclude_paths filter
+        if request.exclude_paths:
+            if any(key.path.startswith(p) for p in request.exclude_paths):
+                continue
+
         # Apply filter_type
         if request.filter_type == "concrete":
             if model.is_interface or model.is_library or model.is_abstract:

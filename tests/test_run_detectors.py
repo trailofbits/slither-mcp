@@ -221,3 +221,62 @@ class TestRunDetectorsEdgeCases:
         assert response.success is True
         assert response.total_count == 2
         assert all(r.detector_name == "naming-convention" for r in response.results)
+
+
+class TestRunDetectorsExcludePaths:
+    """Tests for exclude_paths parameter."""
+
+    def test_exclude_test_path(self, test_path, project_facts_with_detector_findings_in_test):
+        """Test excluding findings from test/ directory."""
+        request = RunDetectorsRequest(path=test_path, exclude_paths=["test/"])
+        response = run_detectors(request, project_facts_with_detector_findings_in_test)
+
+        assert response.success is True
+        # Should not include the finding in test/helpers/TestHelper.sol
+        for result in response.results:
+            for location in result.source_locations:
+                assert not location.file_path.startswith("test/")
+
+    def test_exclude_lib_path(self, test_path, project_facts_with_detector_findings_in_test):
+        """Test excluding findings from lib/ directory."""
+        request = RunDetectorsRequest(path=test_path, exclude_paths=["lib/"])
+        response = run_detectors(request, project_facts_with_detector_findings_in_test)
+
+        assert response.success is True
+        # Should not include the finding in lib/dependency/src/Dependency.sol
+        for result in response.results:
+            for location in result.source_locations:
+                assert not location.file_path.startswith("lib/")
+
+    def test_exclude_multiple_paths(self, test_path, project_facts_with_detector_findings_in_test):
+        """Test excluding findings from multiple directories."""
+        request = RunDetectorsRequest(path=test_path, exclude_paths=["lib/", "test/"])
+        response = run_detectors(request, project_facts_with_detector_findings_in_test)
+
+        assert response.success is True
+        # Should only include findings from contracts/
+        for result in response.results:
+            for location in result.source_locations:
+                assert location.file_path.startswith("contracts/")
+
+    def test_exclude_paths_keeps_valid_findings(
+        self, test_path, project_facts_with_detector_findings_in_test
+    ):
+        """Test that exclude_paths keeps findings outside excluded directories."""
+        request = RunDetectorsRequest(path=test_path, exclude_paths=["test/", "lib/"])
+        response = run_detectors(request, project_facts_with_detector_findings_in_test)
+
+        assert response.success is True
+        # Should still have the reentrancy finding from contracts/Contract.sol
+        assert response.total_count >= 1
+        reentrancy_results = [r for r in response.results if r.detector_name == "reentrancy-eth"]
+        assert len(reentrancy_results) == 1
+
+    def test_exclude_paths_none(self, test_path, project_facts_with_detector_findings_in_test):
+        """Test that None exclude_paths includes all findings."""
+        request = RunDetectorsRequest(path=test_path, exclude_paths=None)
+        response = run_detectors(request, project_facts_with_detector_findings_in_test)
+
+        assert response.success is True
+        # Should include findings from all directories (1 reentrancy + 2 uninitialized)
+        assert response.total_count == 3

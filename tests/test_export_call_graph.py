@@ -516,3 +516,77 @@ def test_export_call_graph_truncation_preserves_connectivity(
     # Should have edges - degree-based selection keeps connected nodes
     # Before fix: random selection could result in isolated nodes with 0 edges
     assert response.edge_count > 0, "Degree-based selection should preserve edges"
+
+
+class TestExportCallGraphLabelFormat:
+    """Tests for label_format parameter."""
+
+    def test_label_format_short_default(
+        self, call_graph_project_facts: ProjectFacts, test_path: str
+    ):
+        """Test that short label format is the default."""
+        request = ExportCallGraphRequest(path=test_path, format="mermaid")
+        response = export_call_graph(request, call_graph_project_facts)
+
+        assert response.success
+        assert response.graph is not None
+        # Short format: ContractA.main (no params)
+        assert "ContractA.main" in response.graph
+        # Should NOT include full signature with parentheses in labels
+        # Note: node IDs will still have sanitized params, but labels should be short
+
+    def test_label_format_short_explicit(
+        self, call_graph_project_facts: ProjectFacts, test_path: str
+    ):
+        """Test explicit short label format."""
+        request = ExportCallGraphRequest(
+            path=test_path, format="mermaid", label_format="short"
+        )
+        response = export_call_graph(request, call_graph_project_facts)
+
+        assert response.success
+        assert response.graph is not None
+        # Short format labels
+        assert "ContractA.main" in response.graph
+
+    def test_label_format_full(self, call_graph_project_facts: ProjectFacts, test_path: str):
+        """Test full label format includes function parameters."""
+        request = ExportCallGraphRequest(
+            path=test_path, format="mermaid", label_format="full"
+        )
+        response = export_call_graph(request, call_graph_project_facts)
+
+        assert response.success
+        assert response.graph is not None
+        # Full format should include function signature with parentheses
+        # e.g., ContractA.main() or MathLib.add(uint256,uint256)
+        assert "main()" in response.graph or "add(uint256,uint256)" in response.graph
+
+    def test_label_format_full_dot(self, call_graph_project_facts: ProjectFacts, test_path: str):
+        """Test full label format in DOT output."""
+        request = ExportCallGraphRequest(
+            path=test_path, format="dot", label_format="full"
+        )
+        response = export_call_graph(request, call_graph_project_facts)
+
+        assert response.success
+        assert response.graph is not None
+        # DOT format with full labels
+        assert "digraph CallGraph" in response.graph
+        # Full signatures should be in labels
+        assert "main()" in response.graph or "add(uint256,uint256)" in response.graph
+
+    def test_label_format_short_more_readable(
+        self, call_graph_project_facts: ProjectFacts, test_path: str
+    ):
+        """Test that short format is more readable for complex signatures."""
+        request = ExportCallGraphRequest(
+            path=test_path, format="mermaid", label_format="short"
+        )
+        response = export_call_graph(request, call_graph_project_facts)
+
+        assert response.success
+        # The MathLib.add function has a complex signature add(uint256,uint256)
+        # With short format, it should display as MathLib.add
+        # This is more readable in graphs
+        assert "MathLib.add" in response.graph

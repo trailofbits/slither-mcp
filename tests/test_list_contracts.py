@@ -193,3 +193,78 @@ class TestListContractsEdgeCases:
         assert child.is_interface is False
         assert child.is_library is False
         assert child.is_fully_implemented is True
+
+
+class TestListContractsExcludePaths:
+    """Tests for exclude_paths parameter."""
+
+    def test_exclude_lib_path(self, test_path, project_facts_with_lib_and_test):
+        """Test excluding contracts in lib/ directory."""
+        request = ListContractsRequest(
+            path=test_path, filter_type="all", exclude_paths=["lib/"]
+        )
+        response = list_contracts(request, project_facts_with_lib_and_test)
+
+        assert response.success is True
+        contract_names = {c.key.contract_name for c in response.contracts}
+        # LibDependency should be excluded
+        assert "LibDependency" not in contract_names
+        # Other contracts should still be present
+        assert "BaseContract" in contract_names
+        assert "ChildContract" in contract_names
+
+    def test_exclude_test_path(self, test_path, project_facts_with_lib_and_test):
+        """Test excluding contracts in test/ directory."""
+        request = ListContractsRequest(
+            path=test_path, filter_type="all", exclude_paths=["test/"]
+        )
+        response = list_contracts(request, project_facts_with_lib_and_test)
+
+        assert response.success is True
+        contract_names = {c.key.contract_name for c in response.contracts}
+        # TestHelper should be excluded
+        assert "TestHelper" not in contract_names
+        # Other contracts should still be present
+        assert "BaseContract" in contract_names
+
+    def test_exclude_multiple_paths(self, test_path, project_facts_with_lib_and_test):
+        """Test excluding contracts from multiple directories."""
+        request = ListContractsRequest(
+            path=test_path, filter_type="all", exclude_paths=["lib/", "test/"]
+        )
+        response = list_contracts(request, project_facts_with_lib_and_test)
+
+        assert response.success is True
+        contract_names = {c.key.contract_name for c in response.contracts}
+        # Both lib and test contracts should be excluded
+        assert "LibDependency" not in contract_names
+        assert "TestHelper" not in contract_names
+        # Other contracts should still be present
+        assert "BaseContract" in contract_names
+
+    def test_exclude_paths_none(self, test_path, project_facts_with_lib_and_test):
+        """Test that None exclude_paths includes all contracts."""
+        request = ListContractsRequest(
+            path=test_path, filter_type="all", exclude_paths=None
+        )
+        response = list_contracts(request, project_facts_with_lib_and_test)
+
+        assert response.success is True
+        contract_names = {c.key.contract_name for c in response.contracts}
+        # All contracts should be included
+        assert "LibDependency" in contract_names
+        assert "TestHelper" in contract_names
+
+    def test_exclude_paths_with_filter(self, test_path, project_facts_with_lib_and_test):
+        """Test combining exclude_paths with filter_type."""
+        request = ListContractsRequest(
+            path=test_path, filter_type="library", exclude_paths=["lib/"]
+        )
+        response = list_contracts(request, project_facts_with_lib_and_test)
+
+        assert response.success is True
+        contract_names = {c.key.contract_name for c in response.contracts}
+        # LibDependency is a library but in lib/ so excluded
+        assert "LibDependency" not in contract_names
+        # LibraryB is a library in contracts/ so included
+        assert "LibraryB" in contract_names

@@ -25,6 +25,17 @@ class SearchFunctionsRequest(JSONStringTolerantModel):
     ] = False
     limit: Annotated[int | None, Field(description="Maximum number of results to return")] = None
     offset: Annotated[int, Field(description="Number of results to skip for pagination")] = 0
+    exclude_paths: Annotated[
+        list[str] | None,
+        Field(description="Path prefixes to exclude (e.g., ['lib/', 'test/', 'node_modules/'])"),
+    ] = None
+    deduplicate: Annotated[
+        bool,
+        Field(
+            description="If true, deduplicate results by (contract_name, signature) to avoid "
+            "showing the same inherited function multiple times"
+        ),
+    ] = True
 
     @field_validator("pattern")
     @classmethod
@@ -82,12 +93,25 @@ def search_functions(
         )
 
     matches: list[FunctionKey] = []
+    seen: set[tuple[str, str]] = set()  # For deduplication: (contract_name, signature)
 
     for contract_key, contract_model in project_facts.contracts.items():
+        # Apply exclude_paths filter
+        if request.exclude_paths:
+            if any(contract_key.path.startswith(p) for p in request.exclude_paths):
+                continue
+
         # Search declared functions
         for sig in contract_model.functions_declared.keys():
             search_target = sig if request.search_signatures else _extract_function_name(sig)
             if pattern.search(search_target):
+                # Apply deduplication if enabled
+                if request.deduplicate:
+                    key = (contract_key.contract_name, sig)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+
                 matches.append(
                     FunctionKey(
                         signature=sig,
@@ -100,6 +124,13 @@ def search_functions(
         for sig in contract_model.functions_inherited.keys():
             search_target = sig if request.search_signatures else _extract_function_name(sig)
             if pattern.search(search_target):
+                # Apply deduplication if enabled
+                if request.deduplicate:
+                    key = (contract_key.contract_name, sig)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+
                 matches.append(
                     FunctionKey(
                         signature=sig,
