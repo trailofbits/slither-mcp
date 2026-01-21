@@ -9,6 +9,7 @@ from slither_mcp.types import (
     ContractKey,
     FunctionKey,
     ProjectFacts,
+    path_matches_exclusion,
 )
 
 
@@ -26,9 +27,22 @@ class ListFunctionsRequest(PaginatedRequest):
     """Request to list functions with optional filters."""
 
     path: Annotated[str, Field(description="Path to the Solidity project directory")]
-    contract_key: ContractKey
+    contract_key: Annotated[
+        ContractKey | None,
+        Field(
+            description="Contract to list functions for. If omitted, lists functions from all "
+            "contracts in the project."
+        ),
+    ] = None
     visibility: list[str] | None = None
     has_modifiers: list[str] | None = None
+    exclude_paths: Annotated[
+        list[str] | None,
+        Field(
+            description="Path prefixes to exclude when listing all contracts "
+            "(e.g., ['lib/', 'test/'])"
+        ),
+    ] = None
     sort_by: Annotated[
         Literal["name", "visibility", "line_count"] | None,
         Field(description="Sort results by: name, visibility, or line_count"),
@@ -66,17 +80,28 @@ def list_functions(
     """
     functions = []
 
-    # Get the specified contract
-    contract_model = project_facts.contracts.get(request.contract_key)
-    if not contract_model:
-        return ListFunctionsResponse(
-            success=False,
-            functions=[],
-            total_count=0,
-            error_message=f"Contract not found: {request.contract_key.contract_name}",
-        )
-
-    contracts_to_search = [(request.contract_key, contract_model)]
+    # Determine which contracts to search
+    if request.contract_key:
+        # Single contract mode
+        contract_model = project_facts.contracts.get(request.contract_key)
+        if not contract_model:
+            return ListFunctionsResponse(
+                success=False,
+                functions=[],
+                total_count=0,
+                error_message=f"Contract not found: {request.contract_key.contract_name}",
+            )
+        contracts_to_search = [(request.contract_key, contract_model)]
+    else:
+        # Project-wide mode
+        contracts_to_search = list(project_facts.contracts.items())
+        # Apply path exclusions for project-wide mode
+        if request.exclude_paths:
+            contracts_to_search = [
+                (key, model)
+                for key, model in contracts_to_search
+                if not path_matches_exclusion(key.path, request.exclude_paths)
+            ]
 
     # Iterate through contracts and functions
     for contract_key, contract_model in contracts_to_search:

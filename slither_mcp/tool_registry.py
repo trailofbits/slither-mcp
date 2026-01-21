@@ -43,6 +43,8 @@ from slither_mcp.tools import (
     GetInheritedContractsResponse,
     GetProjectOverviewRequest,
     GetProjectOverviewResponse,
+    GetStorageLayoutRequest,
+    GetStorageLayoutResponse,
     ListContractsRequest,
     ListContractsResponse,
     ListDetectorsRequest,
@@ -81,6 +83,7 @@ from slither_mcp.tools.get_inherited_contracts import (
     get_inherited_contracts as get_inherited_contracts_impl,
 )
 from slither_mcp.tools.get_project_overview import get_project_overview as get_project_overview_impl
+from slither_mcp.tools.get_storage_layout import get_storage_layout as get_storage_layout_impl
 from slither_mcp.tools.list_contracts import list_contracts as list_contracts_impl
 from slither_mcp.tools.list_detectors import list_detectors as list_detectors_impl
 from slither_mcp.tools.list_function_callees import (
@@ -98,7 +101,6 @@ from slither_mcp.tools.search_contracts import search_contracts as search_contra
 from slither_mcp.tools.search_functions import search_functions as search_functions_impl
 from slither_mcp.types import ProjectFacts
 
-RequestT = TypeVar("RequestT", bound=BaseModel)
 ResponseT = TypeVar("ResponseT", bound=BaseModel)
 
 
@@ -123,19 +125,14 @@ TOOL_CONFIGS: tuple[ToolConfig, ...] = (
         impl=list_contracts_impl,
         request_type=ListContractsRequest,
         response_type=ListContractsResponse,
-        description="""List all contracts in the project. START HERE for project discovery.
-
-WORKFLOW: First tool to call when exploring a new Solidity project.
-
-PARAMETERS:
-- path: Project directory path (required)
-- filter_type: "all" | "concrete" | "interface" | "library" | "abstract"
-- limit/offset: Pagination for large projects
-
-EXAMPLE:
-    {"path": "/project", "filter_type": "concrete", "limit": 20}
-
-NEXT STEPS: get_contract, list_functions, get_contract_source""",
+        description=(
+            "Lists all contracts in a Solidity project with optional filtering by type and path. "
+            "Use this when discovering contracts in an unfamiliar codebase, filtering out test/library "
+            "dependencies, or finding specific contract types like interfaces or abstracts. Returns "
+            "contract metadata including name, path, type flags (is_abstract, is_interface, is_library), "
+            "and direct inheritance list. Does not include function details; use get_contract for full "
+            "contract data. Supports pagination via offset/limit parameters."
+        ),
         error_kwargs={"contracts": [], "total_count": 0},
     ),
     ToolConfig(
@@ -143,19 +140,13 @@ NEXT STEPS: get_contract, list_functions, get_contract_source""",
         impl=get_contract_impl,
         request_type=GetContractRequest,
         response_type=GetContractResponse,
-        description="""Get detailed metadata about a specific contract.
-
-WORKFLOW: Use after list_contracts or search_contracts to get full details.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: {"contract_name": "ERC20", "path": "src/ERC20.sol"}
-- include_functions: Set false for metadata only (reduces response size)
-
-EXAMPLE:
-    {"path": "/project", "contract_key": {"contract_name": "Token", "path": "src/Token.sol"}}
-
-NEXT STEPS: list_functions, get_inherited_contracts, get_derived_contracts""",
+        description=(
+            "Gets detailed metadata for a specific contract including inheritance hierarchy, declared "
+            "and inherited functions, state variables, and events. Use this when you need complete "
+            "information about a contract after finding it with list_contracts or search_contracts. "
+            "Returns the full ContractModel with all relationships. For source code, use "
+            "get_contract_source instead."
+        ),
         error_kwargs={},
     ),
     ToolConfig(
@@ -163,20 +154,13 @@ NEXT STEPS: list_functions, get_inherited_contracts, get_derived_contracts""",
         impl=get_contract_source_impl,
         request_type=GetContractSourceRequest,
         response_type=GetContractSourceResponse,
-        description="""Get source code of a contract's file with optional line limits.
-
-WORKFLOW: Use when you need to read the actual Solidity code.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: {"contract_name": "ERC20", "path": "src/ERC20.sol"}
-- max_lines: Maximum lines to return (default 500, None for unlimited)
-- start_line: Starting line number (1-indexed)
-
-EXAMPLE:
-    {"path": "/project", "contract_key": {"contract_name": "Token", "path": "src/Token.sol"}, "max_lines": 100}
-
-NEXT STEPS: get_function_source (for specific function code)""",
+        description=(
+            "Retrieves the source code of a contract from the original Solidity file. Use this when "
+            "you need to read the actual implementation after finding a contract with list_contracts. "
+            "Returns the source code as a string with optional line range filtering via start_line "
+            "and max_lines parameters. Only returns the contract's portion of the file; for the full "
+            "file, read it directly."
+        ),
         error_kwargs={},
     ),
     ToolConfig(
@@ -184,18 +168,12 @@ NEXT STEPS: get_function_source (for specific function code)""",
         impl=get_function_source_impl,
         request_type=GetFunctionSourceRequest,
         response_type=GetFunctionSourceResponse,
-        description="""Get source code of a specific function.
-
-WORKFLOW: Use after list_functions to read a specific function's implementation.
-
-PARAMETERS:
-- path: Project directory path (required)
-- function_key: {"signature": "transfer(address,uint256)", "contract_name": "ERC20", "path": "src/ERC20.sol"}
-
-EXAMPLE:
-    {"path": "/project", "function_key": {"signature": "balanceOf(address)", "contract_name": "Token", "path": "src/Token.sol"}}
-
-NEXT STEPS: function_callees (to see what it calls), function_callers (to see who calls it)""",
+        description=(
+            "Retrieves the source code of a specific function. Use this when you need to read the "
+            "implementation details after finding a function with list_functions or search_functions. "
+            "Returns the function body with line numbers. Requires the function's contract_key and "
+            "full signature to uniquely identify the function."
+        ),
         error_kwargs={},
     ),
     ToolConfig(
@@ -203,42 +181,27 @@ NEXT STEPS: function_callees (to see what it calls), function_callers (to see wh
         impl=list_functions_impl,
         request_type=ListFunctionsRequest,
         response_type=ListFunctionsResponse,
-        description="""List functions with optional filters by contract, visibility, or modifiers.
-
-WORKFLOW: Use after identifying a contract to explore its functions.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: Filter to specific contract (optional)
-- visibility_filter: "public" | "external" | "internal" | "private"
-- modifier_filter: "view" | "pure" | "payable" | "virtual" | etc.
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "contract_key": {"contract_name": "Token", "path": "src/Token.sol"}, "visibility_filter": "external"}
-
-NEXT STEPS: get_function_source, function_callees, function_callers""",
+        description=(
+            "Lists functions across the project or filtered by contract, visibility, and modifier "
+            "usage. Use this when searching for functions with specific characteristics like external "
+            "entry points, functions with modifiers, or private helpers. Returns function signatures, "
+            "visibility, modifiers, arguments, and return types. Does not include function source code; "
+            "use get_function_source for that. Supports pagination and sorting."
+        ),
         error_kwargs={"functions": [], "total_count": 0},
     ),
     ToolConfig(
-        name="function_callees",
+        name="get_function_callees",
         impl=list_function_callees_impl,
         request_type=FunctionCalleesRequest,
         response_type=FunctionCalleesResponse,
-        description="""Get all functions called by a specific function (call graph outgoing edges).
-
-WORKFLOW: Use for tracing function dependencies and call flow analysis.
-
-PARAMETERS:
-- path: Project directory path (required)
-- function_key: {"signature": "transfer(address,uint256)", "contract_name": "ERC20", "path": "src/ERC20.sol"}
-
-EXAMPLE:
-    {"path": "/project", "function_key": {"signature": "withdraw()", "contract_name": "Vault", "path": "src/Vault.sol"}}
-
-RETURNS: internal_callees, external_callees, library_callees, has_low_level_calls
-
-NEXT STEPS: function_callers (reverse direction), get_function_source""",
+        description=(
+            "Gets all functions called by a specific function (outgoing edges in the call graph). "
+            "Use this when tracing what a function does internally, finding dependencies, or "
+            "understanding control flow. Returns categorized callees: internal (same contract), "
+            "external (other contracts), and library calls, plus a flag for low-level calls "
+            "(call/delegatecall). Does not recurse; call repeatedly to trace deeper."
+        ),
         error_kwargs={},
     ),
     ToolConfig(
@@ -246,21 +209,13 @@ NEXT STEPS: function_callers (reverse direction), get_function_source""",
         impl=get_inherited_contracts_impl,
         request_type=GetInheritedContractsRequest,
         response_type=GetInheritedContractsResponse,
-        description="""Get parent contracts in the inheritance hierarchy (upward tree).
-
-WORKFLOW: Use to understand what a contract inherits from.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: {"contract_name": "ERC20", "path": "src/ERC20.sol"}
-- max_depth: Maximum depth to traverse (default 3, None for unlimited)
-
-EXAMPLE:
-    {"path": "/project", "contract_key": {"contract_name": "MyToken", "path": "src/MyToken.sol"}, "max_depth": 5}
-
-RETURNS: Recursive tree of parent contracts. Check 'truncated' if max_depth was hit.
-
-NEXT STEPS: get_derived_contracts (reverse direction), get_contract""",
+        description=(
+            "Gets the inheritance tree of parent contracts (upward traversal). Use this when "
+            "understanding what a contract inherits, finding the source of inherited functions, or "
+            "analyzing the inheritance hierarchy. Returns a recursive tree structure with parent "
+            "contracts and their parents. Set max_depth to limit traversal depth; returns truncated "
+            "flag if depth exceeded."
+        ),
         error_kwargs={},
         error_request_fields=("contract_key",),
     ),
@@ -269,21 +224,12 @@ NEXT STEPS: get_derived_contracts (reverse direction), get_contract""",
         impl=get_derived_contracts_impl,
         request_type=GetDerivedContractsRequest,
         response_type=GetDerivedContractsResponse,
-        description="""Get child contracts that inherit from this contract (downward tree).
-
-WORKFLOW: Use to find implementations of interfaces or extensions of base contracts.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: {"contract_name": "IERC20", "path": "src/IERC20.sol"}
-- max_depth: Maximum depth to traverse (default 3, None for unlimited)
-
-EXAMPLE:
-    {"path": "/project", "contract_key": {"contract_name": "BaseToken", "path": "src/BaseToken.sol"}}
-
-RETURNS: Recursive tree of child contracts. Check 'truncated' if max_depth was hit.
-
-NEXT STEPS: get_inherited_contracts (reverse direction), list_function_implementations""",
+        description=(
+            "Gets all contracts that inherit from a specific contract (downward traversal). Use this "
+            "when finding all implementations of a base contract, understanding the impact of changes "
+            "to a parent, or discovering contract variants. Returns a recursive tree of child "
+            "contracts. Set max_depth to limit; returns truncated flag if exceeded."
+        ),
         error_kwargs={},
         error_request_fields=("contract_key",),
     ),
@@ -292,43 +238,25 @@ NEXT STEPS: get_inherited_contracts (reverse direction), list_function_implement
         impl=list_function_implementations_impl,
         request_type=ListFunctionImplementationsRequest,
         response_type=ListFunctionImplementationsResponse,
-        description="""Find all contracts that implement a specific function signature.
-
-WORKFLOW: Use to find concrete implementations of interface/abstract functions.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: The interface or abstract contract
-- function_signature: e.g., "transfer(address,uint256)"
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "contract_key": {"contract_name": "IERC20", "path": "src/IERC20.sol"}, "function_signature": "transfer(address,uint256)"}
-
-RETURNS: List of ImplementationInfo with contract_key, visibility, modifiers.
-
-NEXT STEPS: get_function_source (to see each implementation)""",
+        description=(
+            "Finds all contracts that implement a specific function signature. Use this when looking "
+            "for overrides of a virtual function, finding all implementations of an interface method, "
+            "or understanding polymorphism in the codebase. Returns contracts with their implementation "
+            "details. Matches by signature string. Supports pagination."
+        ),
         error_kwargs={},
     ),
     ToolConfig(
-        name="function_callers",
+        name="get_function_callers",
         impl=list_function_callers_impl,
         request_type=FunctionCallersRequest,
         response_type=FunctionCallersResponse,
-        description="""Get all functions that call a specific function (call graph incoming edges).
-
-WORKFLOW: Use for impact analysis and understanding function usage.
-
-PARAMETERS:
-- path: Project directory path (required)
-- function_key: {"signature": "transfer(address,uint256)", "contract_name": "ERC20", "path": "src/ERC20.sol"}
-
-EXAMPLE:
-    {"path": "/project", "function_key": {"signature": "_mint(address,uint256)", "contract_name": "Token", "path": "src/Token.sol"}}
-
-RETURNS: internal_callers, external_callers, library_callers
-
-NEXT STEPS: function_callees (reverse direction), get_function_source""",
+        description=(
+            "Gets all functions that call a specific function (incoming edges in the call graph). "
+            "Use this when finding entry points to a function, understanding usage patterns, or "
+            "assessing impact of changes. Returns categorized callers: internal, external, and "
+            "library. Useful for dead code detection and refactoring impact analysis."
+        ),
         error_kwargs={},
     ),
     ToolConfig(
@@ -336,21 +264,12 @@ NEXT STEPS: function_callees (reverse direction), get_function_source""",
         impl=list_detectors_impl,
         request_type=ListDetectorsRequest,
         response_type=ListDetectorsResponse,
-        description="""List all available Slither security detectors.
-
-WORKFLOW: Use to discover what security checks are available before running them.
-
-PARAMETERS:
-- path: Project directory path (required)
-- name_filter: Filter by name or description (case-insensitive)
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "name_filter": "reentrancy"}
-
-RETURNS: List of detectors with name, description, impact, confidence.
-
-NEXT STEPS: run_detectors (to get actual findings)""",
+        description=(
+            "Lists all available Slither security detectors with their metadata. Use this to discover "
+            "what security checks are available before running analysis, or to filter detectors by "
+            "name. Returns detector name, description, impact level (High/Medium/Low/Informational), "
+            "and confidence level. Does not run detection; use run_detectors for that."
+        ),
         error_kwargs={"detectors": [], "total_count": 0},
     ),
     ToolConfig(
@@ -358,23 +277,12 @@ NEXT STEPS: run_detectors (to get actual findings)""",
         impl=run_detectors_impl,
         request_type=RunDetectorsRequest,
         response_type=RunDetectorsResponse,
-        description="""Get security findings from Slither detectors with optional filtering.
-
-WORKFLOW: Use for security auditing. Filter by impact for critical issues first.
-
-PARAMETERS:
-- path: Project directory path (required)
-- detector_filter: Filter by detector name
-- impact_filter: ["High", "Medium"] - filter by severity
-- confidence_filter: ["High", "Medium"] - filter by confidence
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "impact_filter": ["High", "Medium"]}
-
-RETURNS: List of findings with description, source_locations (file + line numbers).
-
-NEXT STEPS: get_function_source (to see vulnerable code)""",
+        description=(
+            "Gets security findings from Slither's static analysis. Use this to find vulnerabilities, "
+            "code quality issues, or informational findings in the project. Can filter by specific "
+            "detectors, impact level, confidence, or exclude paths like tests. Returns findings with "
+            "descriptions and source locations. Results are cached from initial analysis."
+        ),
         error_kwargs={"results": [], "total_count": 0},
     ),
     ToolConfig(
@@ -382,20 +290,12 @@ NEXT STEPS: get_function_source (to see vulnerable code)""",
         impl=search_contracts_impl,
         request_type=SearchContractsRequest,
         response_type=SearchContractsResponse,
-        description="""Search for contracts by name using regex patterns.
-
-WORKFLOW: Use when you know part of a contract name but not the exact path.
-
-PARAMETERS:
-- path: Project directory path (required)
-- pattern: Regex pattern to match contract names
-- case_sensitive: Default false
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "pattern": "ERC20.*"}
-
-NEXT STEPS: get_contract, list_functions, get_contract_source""",
+        description=(
+            "Searches for contracts by name using regex pattern matching. Use this when you know part "
+            "of a contract name but not its exact path or when looking for contracts following a "
+            "naming convention. Returns matching contracts with full metadata. Case-insensitive by "
+            "default; set case_sensitive=true for exact matching. Supports pagination."
+        ),
         error_kwargs={"matches": [], "total_count": 0},
     ),
     ToolConfig(
@@ -403,21 +303,12 @@ NEXT STEPS: get_contract, list_functions, get_contract_source""",
         impl=search_functions_impl,
         request_type=SearchFunctionsRequest,
         response_type=SearchFunctionsResponse,
-        description="""Search for functions by name or signature using regex patterns.
-
-WORKFLOW: Use to find functions across all contracts matching a pattern.
-
-PARAMETERS:
-- path: Project directory path (required)
-- pattern: Regex pattern to match function names or signatures
-- search_signature: If true, searches full signature including params
-- case_sensitive: Default false
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "pattern": "transfer.*", "search_signature": true}
-
-NEXT STEPS: get_function_source, function_callees, function_callers""",
+        description=(
+            "Searches for functions by name or signature using regex pattern matching. Use this when "
+            "looking for functions across the codebase by name pattern or parameter types. Can search "
+            "function names only or full signatures including parameters. Returns matching functions "
+            "with full metadata. Supports pagination."
+        ),
         error_kwargs={"matches": [], "total_count": 0},
     ),
     ToolConfig(
@@ -425,20 +316,13 @@ NEXT STEPS: get_function_source, function_callees, function_callers""",
         impl=get_project_overview_impl,
         request_type=GetProjectOverviewRequest,
         response_type=GetProjectOverviewResponse,
-        description="""Get aggregate statistics and overview of the Solidity project.
-
-WORKFLOW: Use as a quick summary before diving into details.
-
-PARAMETERS:
-- path: Project directory path (required)
-
-EXAMPLE:
-    {"path": "/project"}
-
-RETURNS: contract_counts, function_counts, visibility_distribution,
-         complexity_distribution, detector_findings_by_impact, top_detectors
-
-NEXT STEPS: list_contracts, run_detectors""",
+        description=(
+            "Gets aggregate statistics about the entire project including contract counts by type, "
+            "function counts by visibility, and security findings by impact level. Use this as a "
+            "starting point when exploring an unfamiliar codebase or generating project summaries. "
+            "Returns counts and distributions, not detailed data. Use list_contracts and run_detectors "
+            "for details."
+        ),
         error_kwargs={},
     ),
     ToolConfig(
@@ -446,23 +330,13 @@ NEXT STEPS: list_contracts, run_detectors""",
         impl=find_dead_code_impl,
         request_type=FindDeadCodeRequest,
         response_type=FindDeadCodeResponse,
-        description="""Find functions with no callers (potential dead code).
-
-WORKFLOW: Use for code cleanup and identifying unused functions.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: Optional, limit to specific contract
-- exclude_entry_points: If true (default), skip public/external functions
-- include_inherited: If true, also check inherited functions
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "exclude_entry_points": true}
-
-RETURNS: List of functions with no internal callers.
-
-NEXT STEPS: get_function_source (to review dead code)""",
+        description=(
+            "Finds functions with no callers (potential dead code). Use this during code cleanup, "
+            "auditing for unused code, or understanding code coverage. Can exclude known entry points "
+            "(external/public functions), test framework functions, and inherited functions. Returns "
+            "uncalled functions with their metadata. Some functions may be called dynamically and not "
+            "detected. Supports pagination."
+        ),
         error_kwargs={"dead_functions": [], "total_count": 0},
     ),
     ToolConfig(
@@ -470,25 +344,12 @@ NEXT STEPS: get_function_source (to review dead code)""",
         impl=export_call_graph_impl,
         request_type=ExportCallGraphRequest,
         response_type=ExportCallGraphResponse,
-        description="""Export the function call graph as Mermaid or DOT format.
-
-WORKFLOW: Use for visualization and documentation of function relationships.
-
-PARAMETERS:
-- path: Project directory path (required)
-- format: "mermaid" (default) or "dot" (GraphViz)
-- contract_key: Optional, limit to specific contract
-- entry_points_only: If true, only show public/external functions
-- include_external: Include external call edges (default true)
-- include_library: Include library call edges (default true)
-- max_nodes: Maximum nodes to prevent huge graphs (default 100)
-
-EXAMPLE:
-    {"path": "/project", "format": "mermaid", "entry_points_only": true}
-
-RETURNS: Graph string in requested format.
-
-NEXT STEPS: Use in documentation or visualization tools""",
+        description=(
+            "Exports the project's function call graph in Mermaid or DOT visualization format. Use "
+            "this when you need a visual representation of function relationships or for documentation. "
+            "Can filter to specific contracts or entry points only. Returns a string in the requested "
+            "format suitable for rendering. May be large for big projects; use max_nodes to limit."
+        ),
         error_kwargs={},
     ),
     ToolConfig(
@@ -496,24 +357,12 @@ NEXT STEPS: Use in documentation or visualization tools""",
         impl=get_contract_dependencies_impl,
         request_type=GetContractDependenciesRequest,
         response_type=GetContractDependenciesResponse,
-        description="""Map contract dependency relationships (inheritance, calls, library usage).
-
-WORKFLOW: Use for understanding contract relationships and impact analysis.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: Optional, get dependencies for a specific contract
-- include_external_calls: Include external call dependencies (default true)
-- include_library_usage: Include library usage dependencies (default true)
-- detect_circular: Detect circular dependencies (default true)
-
-EXAMPLE:
-    {"path": "/project", "contract_key": {"contract_name": "Token", "path": "src/Token.sol"}}
-
-RETURNS: depends_on (what this contract needs), depended_by (what needs this),
-         circular_dependencies (if detected)
-
-NEXT STEPS: get_contract, get_inherited_contracts""",
+        description=(
+            "Maps all dependencies for a specific contract including inheritance, external calls, and "
+            "library usage. Use this when understanding what a contract depends on, finding coupling "
+            "issues, or detecting circular dependencies. Returns categorized dependencies with optional "
+            "circular dependency detection."
+        ),
         error_kwargs={},
     ),
     ToolConfig(
@@ -521,49 +370,41 @@ NEXT STEPS: get_contract, get_inherited_contracts""",
         impl=analyze_state_variables_impl,
         request_type=AnalyzeStateVariablesRequest,
         response_type=AnalyzeStateVariablesResponse,
-        description="""Analyze state variables across the project.
-
-WORKFLOW: Use for storage layout analysis, upgrade safety, and code review.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: Optional, limit to specific contract
-- visibility_filter: Filter by visibility (public, internal, private)
-- include_constants: Include constant variables (default true)
-- include_immutables: Include immutable variables (default true)
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "visibility_filter": "public"}
-
-RETURNS: List of state variables with type, visibility, and mutability info.
-         Summary with counts by visibility.
-
-NEXT STEPS: get_contract, get_contract_source""",
+        description=(
+            "Analyzes state variables across the project or for a specific contract. Use this when "
+            "auditing storage layout, finding public state, or understanding contract data. Can filter "
+            "by visibility, include/exclude constants and immutables. Returns variable details including "
+            "type, visibility, and declaration location. For storage slot layout, use get_storage_layout. "
+            "Supports pagination."
+        ),
         error_kwargs={"variables": [], "total_count": 0},
+    ),
+    ToolConfig(
+        name="get_storage_layout",
+        impl=get_storage_layout_impl,
+        request_type=GetStorageLayoutRequest,
+        response_type=GetStorageLayoutResponse,
+        description=(
+            "Computes the storage slot layout for a contract showing slot numbers, byte offsets, and "
+            "variable sizes. Use this for upgrade safety analysis, storage collision detection, or "
+            "understanding how variables are packed. Returns ordered slot assignments following "
+            "Solidity's packing rules. Excludes constants and immutables (not in storage). Can include "
+            "or exclude inherited storage. Supports pagination."
+        ),
+        error_kwargs={"storage_slots": [], "total_count": 0, "total_slots_used": 0},
+        error_request_fields=("contract_key",),
     ),
     ToolConfig(
         name="analyze_events",
         impl=analyze_events_impl,
         request_type=AnalyzeEventsRequest,
         response_type=AnalyzeEventsResponse,
-        description="""Analyze events across the project.
-
-WORKFLOW: Use for frontend integration planning, indexer development, and audit.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: Optional, limit to specific contract
-- name_filter: Filter by event name (case-insensitive substring)
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "name_filter": "Transfer"}
-
-RETURNS: List of events with parameters (name, type, indexed).
-         Summary with event counts per contract.
-
-NEXT STEPS: get_contract_source (to see event declarations)""",
+        description=(
+            "Analyzes event definitions across the project or for a specific contract. Use this when "
+            "understanding what events a contract emits, finding indexed parameters, or auditing "
+            "logging. Returns event names, parameters with types and indexed flags, and source "
+            "locations. Does not find event emissions; search source code for that. Supports pagination."
+        ),
         error_kwargs={"events": [], "total_count": 0},
     ),
     ToolConfig(
@@ -571,23 +412,12 @@ NEXT STEPS: get_contract_source (to see event declarations)""",
         impl=analyze_modifiers_impl,
         request_type=AnalyzeModifiersRequest,
         response_type=AnalyzeModifiersResponse,
-        description="""Analyze custom modifiers and their usage across the project.
-
-WORKFLOW: Use for access control analysis, modifier ordering review, and audit.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: Optional, limit to specific contract
-- name_filter: Filter by modifier name (case-insensitive substring)
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project", "name_filter": "only"}
-
-RETURNS: List of modifiers with usage counts and functions using them.
-         Summary with modifiers per contract.
-
-NEXT STEPS: list_functions (to see modifier usage), get_function_source""",
+        description=(
+            "Analyzes custom modifier definitions and their usage across functions. Use this when "
+            "auditing access control patterns, finding modifier implementations, or understanding "
+            "function guards. Returns modifier definitions with their source and a list of functions "
+            "that use each modifier. Supports pagination."
+        ),
         error_kwargs={"modifiers": [], "total_count": 0},
     ),
     ToolConfig(
@@ -595,22 +425,12 @@ NEXT STEPS: list_functions (to see modifier usage), get_function_source""",
         impl=analyze_low_level_calls_impl,
         request_type=AnalyzeLowLevelCallsRequest,
         response_type=AnalyzeLowLevelCallsResponse,
-        description="""Find functions that use low-level calls (call, delegatecall, staticcall).
-
-WORKFLOW: Use for security audits, gas optimization, and code review.
-
-PARAMETERS:
-- path: Project directory path (required)
-- contract_key: Optional, limit to specific contract
-- limit/offset: Pagination
-
-EXAMPLE:
-    {"path": "/project"}
-
-RETURNS: List of functions with low-level calls.
-         Summary with counts per contract.
-
-NEXT STEPS: get_function_source (to review low-level call usage)""",
+        description=(
+            "Finds all functions using low-level calls (call, delegatecall, staticcall, or assembly). "
+            "Use this for security auditing since low-level calls bypass Solidity's type safety and "
+            "can introduce vulnerabilities. Returns functions grouped by call type with source "
+            "locations. Critical for reentrancy and proxy pattern analysis. Supports pagination."
+        ),
         error_kwargs={"calls": [], "total_count": 0},
     ),
 )
@@ -627,7 +447,7 @@ def _make_tool_wrapper(
     """Create a wrapped tool function with project facts loading and error handling."""
 
     @track_tool_call(tool_name)
-    def wrapper(request: RequestT) -> ResponseT:
+    def wrapper(request: Any) -> ResponseT:
         try:
             project_facts = get_project_facts(request.path)
             return impl_func(request, project_facts)
