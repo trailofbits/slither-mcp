@@ -50,6 +50,35 @@ def save_project_facts(project_facts: ProjectFacts, artifacts_dir: str) -> None:
     print(f"Saved project facts to: {file_path}", file=sys.stderr)
 
 
+def _normalize_paths(project_facts: ProjectFacts) -> ProjectFacts:
+    """
+    Convert any absolute paths to relative paths for portability.
+
+    Legacy cached facts may contain absolute paths in ContractModel.path.
+    This function normalizes them to relative paths based on project_dir.
+
+    Args:
+        project_facts: The ProjectFacts to normalize
+
+    Returns:
+        The same ProjectFacts with normalized paths (mutated in place)
+    """
+    project_dir = project_facts.project_dir
+
+    for contract_model in project_facts.contracts.values():
+        path = contract_model.path
+        # If path is absolute and starts with project_dir, make it relative
+        if os.path.isabs(path):
+            try:
+                contract_model.path = os.path.relpath(path, project_dir)
+            except ValueError:
+                # On Windows, relpath fails if paths are on different drives
+                # Fall back to keeping the original path
+                pass
+
+    return project_facts
+
+
 def load_project_facts(artifacts_dir: str) -> ProjectFacts:
     """
     Load ProjectFacts from JSON file in artifacts directory.
@@ -105,7 +134,9 @@ def load_project_facts(artifacts_dir: str) -> ProjectFacts:
                 )
 
         try:
-            return ProjectFacts.model_validate(data)
+            project_facts = ProjectFacts.model_validate(data)
+            # Normalize any absolute paths for backward compatibility
+            return _normalize_paths(project_facts)
         except Exception as e:
             raise CacheCorruptionError(f"Failed to parse cache data: {e}") from e
 
