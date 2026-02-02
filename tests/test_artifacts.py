@@ -14,10 +14,13 @@ from slither_mcp.artifacts import (
     artifacts_exist,
 )
 from slither_mcp.types import (
+    CACHE_SCHEMA_VERSION,
+    CacheCorruptionError,
     ContractKey,
     ContractModel,
     FunctionCallees,
     ProjectFacts,
+    compute_content_checksum,
 )
 
 
@@ -158,43 +161,53 @@ class TestSaveAndLoadProjectFacts:
             assert loaded.contracts[key].path == "contracts/Simple.sol"
 
     def test_load_normalizes_absolute_paths(self, contract_with_absolute_path):
-        """Test that loading normalizes absolute paths in legacy facts."""
+        """Test that loading normalizes absolute paths in cached facts."""
         key = contract_with_absolute_path.key
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Manually create a project_facts.json with absolute path
             # ContractKey uses format: ContractName@path!with!slashes
             contract_key_str = "AbsoluteContract@contracts!Absolute.sol"
-            legacy_data = {
+            data = {
+                "contracts": {
+                    contract_key_str: {
+                        "name": "AbsoluteContract",
+                        "key": {"contract_name": "AbsoluteContract", "path": "contracts/Absolute.sol"},
+                        "path": "/test/project/contracts/Absolute.sol",  # Absolute path (legacy bug)
+                        "is_abstract": False,
+                        "is_fully_implemented": True,
+                        "is_interface": False,
+                        "is_library": False,
+                        "directly_inherits": [],
+                        "scopes": ["AbsoluteContract@contracts!Absolute.sol"],
+                        "functions_declared": {},
+                        "functions_inherited": {},
+                        "state_variables": [],
+                        "events": [],
+                    }
+                },
+                "project_dir": "/test/project",
+                "detector_results": {},
+                "available_detectors": [],
+            }
+
+            # Compute checksum for the data
+            data_str = json.dumps(data, sort_keys=True)
+            checksum = compute_content_checksum(data_str)
+
+            cache_data = {
                 "_pydantic_type": {
                     "is_list": False,
                     "model_name": "ProjectFacts"
                 },
-                "data": {
-                    "contracts": {
-                        contract_key_str: {
-                            "name": "AbsoluteContract",
-                            "key": {"contract_name": "AbsoluteContract", "path": "contracts/Absolute.sol"},
-                            "path": "/test/project/contracts/Absolute.sol",  # Absolute path (legacy bug)
-                            "is_abstract": False,
-                            "is_fully_implemented": True,
-                            "is_interface": False,
-                            "is_library": False,
-                            "directly_inherits": [],
-                            "scopes": ["AbsoluteContract@contracts!Absolute.sol"],
-                            "functions_declared": {},
-                            "functions_inherited": {},
-                        }
-                    },
-                    "project_dir": "/test/project",
-                    "detector_results": {},
-                    "available_detectors": [],
-                }
+                "_cache_version": CACHE_SCHEMA_VERSION,
+                "_checksum": checksum,
+                "data": data,
             }
 
             file_path = Path(tmpdir) / "project_facts.json"
             with open(file_path, "w") as f:
-                json.dump(legacy_data, f)
+                json.dump(cache_data, f)
 
             # Load should normalize paths
             loaded = load_project_facts(tmpdir)
@@ -205,11 +218,11 @@ class TestSaveAndLoadProjectFacts:
             assert contract.path == "contracts/Absolute.sol"
             assert not os.path.isabs(contract.path)
 
-    def test_load_nonexistent_returns_none(self):
-        """Test that loading from nonexistent path returns None."""
+    def test_load_nonexistent_raises_error(self):
+        """Test that loading from nonexistent path raises FileNotFoundError."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            loaded = load_project_facts(tmpdir)
-            assert loaded is None
+            with pytest.raises(FileNotFoundError):
+                load_project_facts(tmpdir)
 
     def test_artifacts_exist_true(self, simple_contract):
         """Test artifacts_exist returns True when file exists."""
@@ -228,22 +241,22 @@ class TestSaveAndLoadProjectFacts:
         with tempfile.TemporaryDirectory() as tmpdir:
             assert artifacts_exist(tmpdir) is False
 
-    def test_load_corrupted_json_returns_none(self):
-        """Test that loading corrupted JSON returns None gracefully."""
+    def test_load_corrupted_json_raises_error(self):
+        """Test that loading corrupted JSON raises CacheCorruptionError."""
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = Path(tmpdir) / "project_facts.json"
             with open(file_path, "w") as f:
                 f.write("{ invalid json }")
 
-            loaded = load_project_facts(tmpdir)
-            assert loaded is None
+            with pytest.raises(CacheCorruptionError):
+                load_project_facts(tmpdir)
 
-    def test_load_direct_project_facts_format(self, simple_contract):
-        """Test loading ProjectFacts without _pydantic_type wrapper (fallback path)."""
+    def test_load_legacy_format_raises_error(self, simple_contract):
+        """Test that legacy format without version info raises CacheCorruptionError."""
         key = simple_contract.key
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Create data without the _pydantic_type wrapper
+            # Create data without the _pydantic_type wrapper (legacy format)
             direct_data = {
                 "contracts": {
                     str(key): {
@@ -269,10 +282,9 @@ class TestSaveAndLoadProjectFacts:
             with open(file_path, "w") as f:
                 json.dump(direct_data, f)
 
-            loaded = load_project_facts(tmpdir)
-
-            assert loaded is not None
-            assert len(loaded.contracts) == 1
+            # Legacy format without version info should raise error
+            with pytest.raises(CacheCorruptionError):
+                load_project_facts(tmpdir)
 
     def test_save_creates_artifacts_directory(self, simple_contract):
         """Test that save_project_facts creates the artifacts directory if missing."""
