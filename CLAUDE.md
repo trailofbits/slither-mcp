@@ -424,6 +424,30 @@ uv sync
 uv pip install -e .
 ```
 
+## Publishing a New Version
+
+When releasing a new version, update the version string in **all** of the following files:
+
+| File | Location | Example |
+|------|----------|---------|
+| `pyproject.toml` | `version = "X.Y.Z"` | `version = "1.2.0"` |
+| `slither_mcp/__init__.py` | `__version__ = "X.Y.Z"` | `__version__ = "1.2.0"` |
+
+### Release Checklist
+
+1. **Update version in both files** (they must match!)
+2. **Run tests**: `uv run pytest`
+3. **Commit version bump**: `git commit -m "Bump version to X.Y.Z"`
+4. **Create git tag**: `git tag vX.Y.Z`
+5. **Push with tags**: `git push && git push --tags`
+
+### Version Format
+
+Follow [Semantic Versioning](https://semver.org/):
+- **MAJOR**: Breaking changes to the MCP tool interface
+- **MINOR**: New tools or features (backward compatible)
+- **PATCH**: Bug fixes (backward compatible)
+
 ## When Working on This Codebase
 
 1. **Read types.py first** - Understand `ProjectFacts`, `ContractKey`, `FunctionKey`

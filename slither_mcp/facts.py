@@ -192,7 +192,7 @@ def populate_contract_facts(contracts: list) -> dict[ContractKey, ContractModel]
         ret[get_contract_key(contract)] = ContractModel(
             name=contract.name,
             key=contract_key,
-            path=contract.file_scope.filename.absolute,
+            path=contract.file_scope.filename.short,
             is_abstract=contract.is_abstract,
             is_fully_implemented=contract.is_fully_implemented,
             is_interface=contract.is_interface,
