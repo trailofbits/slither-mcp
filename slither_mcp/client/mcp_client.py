@@ -267,7 +267,7 @@ class SlitherMCPClient:
             Response with internal, external, and library callees
         """
         request.path = self._project_path
-        return await self._call_tool("function_callees", request, FunctionCalleesResponse)
+        return await self._call_tool("get_function_callees", request, FunctionCalleesResponse)
 
     async def function_callers(self, request: FunctionCallersRequest) -> FunctionCallersResponse:
         """
@@ -280,7 +280,7 @@ class SlitherMCPClient:
             Response with internal, external, and library callers
         """
         request.path = self._project_path
-        return await self._call_tool("function_callers", request, FunctionCallersResponse)
+        return await self._call_tool("get_function_callers", request, FunctionCallersResponse)
 
     async def get_inherited_contracts(
         self, request: GetInheritedContractsRequest
