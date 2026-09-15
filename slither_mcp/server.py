@@ -213,8 +213,8 @@ def main():
 
 ### Analysis
 - list_functions - List functions with visibility/modifier filters
-- function_callees - What does this function call? (outgoing call graph)
-- function_callers - What calls this function? (incoming call graph)
+- get_function_callees - What does this function call? (outgoing call graph)
+- get_function_callers - What calls this function? (incoming call graph)
 - get_inherited_contracts - Parent contracts (upward inheritance tree)
 - get_derived_contracts - Child contracts (downward inheritance tree)
 - list_function_implementations - Find concrete implementations of interface/abstract functions
@@ -239,7 +239,7 @@ FunctionKey: {"signature": "transfer(address,uint256)", "contract_name": "ERC20"
 ### Security Audit
 1. run_detectors with impact_filter=["High", "Medium"] for critical findings
 2. get_function_source to review flagged code
-3. function_callees to trace vulnerable call paths
+3. get_function_callees to trace vulnerable call paths
 
 ### Understanding Inheritance
 1. search_contracts to find the base contract/interface

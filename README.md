@@ -62,7 +62,7 @@ claude mcp add --transport stdio --scope user slither -- uvx --from git+https://
 
 ### Use in Cursor
 
-Make sure uvx is on your Cursor path using `sudo ln -s ~/.local/bin/uvx /usr/local/bin/uvx`
+Make sure `uvx` is on the `PATH` inherited by Cursor. If Cursor cannot find it, replace `"uvx"` below with the absolute path returned by `command -v uvx`.
 
 In your `~/.cursor/mcp.json`:
 
@@ -70,10 +70,22 @@ In your `~/.cursor/mcp.json`:
 {
   "mcpServers": {
     "slither-mcp": {
-      "command": "uvx --from git+https://github.com/trailofbits/slither-mcp slither-mcp",
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/trailofbits/slither-mcp",
+        "slither-mcp"
+      ]
     }
   }
 }
+```
+
+Then verify that Cursor can list the server's tools:
+
+```bash
+agent mcp list-tools slither-mcp
 ```
 
 ## Metrics and Privacy
@@ -119,11 +131,11 @@ Returns the source code for a specific function with line numbers. Useful for fo
 ### 5. `list_functions` - List functions with filters
 Filter functions by contract, visibility, or modifiers.
 
-### 6. `function_callees` - Get function call relationships
+### 6. `get_function_callees` - Get function call relationships
 Returns internal, external, and library callees for a function, including low-level call detection.
 
-### 7. `function_callers` - Get functions that call a target function
-Returns all functions that call the specified target function, grouped by call type (internal, external, library). This is the inverse of `function_callees`.
+### 7. `get_function_callers` - Get functions that call a target function
+Returns all functions that call the specified target function, grouped by call type (internal, external, library). This is the inverse of `get_function_callees`.
 
 ### 8. `get_inherited_contracts` - Get contract inheritance
 Returns a recursive tree of all contracts that a contract inherits from (parents and ancestors).
