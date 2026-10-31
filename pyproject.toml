@@ -33,7 +33,12 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "fastmcp>=2.14.0,<3",
+    # fastmcp 2.14.6+ never answers tools/list for this server: its
+    # dereference_refs() tool-schema pipeline hangs on slither-mcp's
+    # schemas, and the circular-$ref fix was never backported to 2.x
+    # (it only exists in fastmcp 3.x). Cap below 2.14.6 until the
+    # server migrates to fastmcp 3.x. See issue #35.
+    "fastmcp>=2.14.0,<2.14.6",
     "mcp>=1.25.0,<2",
     "pydantic>=2.12.0,<3",
     "slither-analyzer>=0.11.5,<0.12",
